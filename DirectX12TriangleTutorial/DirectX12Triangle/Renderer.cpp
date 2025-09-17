@@ -216,7 +216,6 @@ void Renderer::CreateRootSignature()
     rootParameter.Descriptor.RegisterSpace = 0;
     rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
-    ID3D12RootSignature* rootSignature = nullptr;
     D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
     root_signature_desc.NumParameters = 1;
     root_signature_desc.pParameters = &rootParameter;
