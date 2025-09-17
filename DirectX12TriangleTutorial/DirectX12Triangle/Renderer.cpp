@@ -466,100 +466,88 @@ void Renderer::Update() {
 
 void Renderer::Render() {
     // TODO: record command list, clear RT, draw cube
-    while (running) {
-        MSG msg = {};
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT) {
-                running = false;
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+    // Record commands to draw a triangle
+    commandAllocator->Reset();
+    commandList->Reset(commandAllocator, nullptr);
 
-        // Record commands to draw a triangle
-        commandAllocator->Reset();
-        commandList->Reset(commandAllocator, nullptr);
+    UINT back_buffer_index = swapChain->GetCurrentBackBufferIndex();
 
-        UINT back_buffer_index = swapChain->GetCurrentBackBufferIndex();
+    {
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        barrier.Transition.pResource = renderTargets[back_buffer_index];
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        commandList->ResourceBarrier(1, &barrier);
+    }
 
-        {
-            D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            barrier.Transition.pResource = renderTargets[back_buffer_index];
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            commandList->ResourceBarrier(1, &barrier);
-        }
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    rtv_handle.ptr += back_buffer_index * rtvDescriptorSize;
 
-        D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
-        rtv_handle.ptr += back_buffer_index * rtvDescriptorSize;
+    // Clear the render target
+    float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    commandList->ClearRenderTargetView(rtv_handle, clearColor, 0, nullptr);
 
-        // Clear the render target
-        float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-        commandList->ClearRenderTargetView(rtv_handle, clearColor, 0, nullptr);
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = dsv_heap->GetCPUDescriptorHandleForHeapStart();
+    commandList->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-        D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = dsv_heap->GetCPUDescriptorHandleForHeapStart();
-        commandList->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+    // Set viewport and scissor
+    D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f };
+    D3D12_RECT scissor_rect = { 0, 0, width, height };
+    commandList->RSSetViewports(1, &viewport);
+    commandList->RSSetScissorRects(1, &scissor_rect);
 
-        // Set viewport and scissor
-        D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f };
-        D3D12_RECT scissor_rect = { 0, 0, width, height };
-        commandList->RSSetViewports(1, &viewport);
-        commandList->RSSetScissorRects(1, &scissor_rect);
+    commandList->OMSetRenderTargets(1, &rtv_handle, FALSE, &dsv_handle);
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList->SetGraphicsRootSignature(rootSignature);
+    commandList->SetPipelineState(pipelineState);
 
-        commandList->OMSetRenderTargets(1, &rtv_handle, FALSE, &dsv_handle);
-        commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        commandList->SetGraphicsRootSignature(rootSignature);
-        commandList->SetPipelineState(pipelineState);
+    // Draw the triangle
+    //command_list->SetGraphicsRoot32BitConstant(0, triangle_angle, 0);
 
-        // Draw the triangle
-        //command_list->SetGraphicsRoot32BitConstant(0, triangle_angle, 0);
+    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {};
+    vertex_buffer_view.BufferLocation = vertex_buffer->GetGPUVirtualAddress();
+    vertex_buffer_view.StrideInBytes = sizeof(Vertex);
+    vertex_buffer_view.SizeInBytes = sizeof(Vertex) * model.vertices.size();
+    commandList->IASetVertexBuffers(0, 1, &vertex_buffer_view);
 
-        D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {};
-        vertex_buffer_view.BufferLocation = vertex_buffer->GetGPUVirtualAddress();
-        vertex_buffer_view.StrideInBytes = sizeof(Vertex);
-        vertex_buffer_view.SizeInBytes = sizeof(Vertex) * model.vertices.size();
-        commandList->IASetVertexBuffers(0, 1, &vertex_buffer_view);
+    D3D12_INDEX_BUFFER_VIEW index_buffer_view = {};
+    index_buffer_view.BufferLocation = index_buffer->GetGPUVirtualAddress();
+    index_buffer_view.SizeInBytes = sizeof(unsigned int) * model.indices.size();
+    index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
+    commandList->IASetIndexBuffer(&index_buffer_view);
 
-        D3D12_INDEX_BUFFER_VIEW index_buffer_view = {};
-        index_buffer_view.BufferLocation = index_buffer->GetGPUVirtualAddress();
-        index_buffer_view.SizeInBytes = sizeof(unsigned int) * model.indices.size();
-        index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
-        commandList->IASetIndexBuffer(&index_buffer_view);
+    D3D12_GPU_VIRTUAL_ADDRESS cbAddress = constantBuffer->GetGPUVirtualAddress();
+    commandList->SetGraphicsRootConstantBufferView(0, cbAddress);
 
-        D3D12_GPU_VIRTUAL_ADDRESS cbAddress = constantBuffer->GetGPUVirtualAddress();
-        commandList->SetGraphicsRootConstantBufferView(0, cbAddress);
+    commandList->DrawIndexedInstanced(model.indices.size(), 1, 0, 0, 0);
 
-        commandList->DrawIndexedInstanced(model.indices.size(), 1, 0, 0, 0);
+    {
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        barrier.Transition.pResource = renderTargets[back_buffer_index];
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        commandList->ResourceBarrier(1, &barrier);
+    }
 
-        {
-            D3D12_RESOURCE_BARRIER barrier = {};
-            barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-            barrier.Transition.pResource = renderTargets[back_buffer_index];
-            barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-            barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-            barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-            commandList->ResourceBarrier(1, &barrier);
-        }
+    commandList->Close();
 
-        commandList->Close();
+    ID3D12CommandList* commandLists[] = { commandList };
+    commandQueue->ExecuteCommandLists(1, commandLists);
 
-        ID3D12CommandList* commandLists[] = { commandList };
-        commandQueue->ExecuteCommandLists(1, commandLists);
+    swapChain->Present(1, 0);
 
-        swapChain->Present(1, 0);
+    // Wait on the CPU for the GPU frame to finish
+    const UINT64 current_fence_value = ++fence_value;
+    commandQueue->Signal(fence, current_fence_value);
 
-        // Wait on the CPU for the GPU frame to finish
-        const UINT64 current_fence_value = ++fence_value;
-        commandQueue->Signal(fence, current_fence_value);
-
-        if (fence->GetCompletedValue() < current_fence_value) {
-            fence->SetEventOnCompletion(current_fence_value, fence_event);
-            WaitForSingleObject(fence_event, INFINITE);
-        }
+    if (fence->GetCompletedValue() < current_fence_value) {
+        fence->SetEventOnCompletion(current_fence_value, fence_event);
+        WaitForSingleObject(fence_event, INFINITE);
     }
 }
