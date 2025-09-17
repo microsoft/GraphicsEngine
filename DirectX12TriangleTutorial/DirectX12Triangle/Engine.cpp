@@ -24,7 +24,7 @@ void Engine::InitWindow() {
 
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindow(wc.lpszClassName, L"DirectX Engine", WS_OVERLAPPEDWINDOW,
+    hwnd = CreateWindow(wc.lpszClassName, L"DirectX Engine", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, hInstance, nullptr);
     
     ShowWindow(hwnd, SW_SHOW);

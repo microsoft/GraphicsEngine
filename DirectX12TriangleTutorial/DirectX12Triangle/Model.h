@@ -23,7 +23,7 @@ struct alignas(256) MVPConstants {
     DirectX::XMMATRIX mvp;
 };
 
-Model createCube() {
+inline Model createCube() {
 
     Model model;
     std::vector<DirectX::XMFLOAT3> positions;
@@ -86,7 +86,7 @@ Model createCube() {
 }
 
 // borrowed code but could be handy 
-Model loadModelFromObj(const std::string& path) {
+inline Model loadModelFromObj(const std::string& path) {
     std::ifstream file(path);  // Open the file
 
     if (!file.is_open()) {

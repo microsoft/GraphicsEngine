@@ -83,7 +83,7 @@ void Renderer::SetDepthStencilState(D3D12_DEPTH_STENCIL_DESC& depth_stencil_desc
 }
 
 void Renderer::InitD3D() {
-    D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
+    HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
 
     // Command queue
     D3D12_COMMAND_QUEUE_DESC cqDesc = {};
@@ -102,7 +102,7 @@ void Renderer::InitD3D() {
     //helper object to create a swap chain
     UINT dxgiFactoryFlags = 0; // this is for debug help
     ComPtr<IDXGIFactory4> factory;
-    CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory));
+    hr = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
 
     // Swapchain
     // basically this is ping-ponging what's being rendered 
@@ -118,11 +118,11 @@ void Renderer::InitD3D() {
     swapChainDesc.SampleDesc.Count = 1;
     swapChainDesc.Windowed = TRUE;
 
-    factory->CreateSwapChain(commandQueue, &swapChainDesc, &tempSwapChain);
+    hr = factory->CreateSwapChain(commandQueue, &swapChainDesc, &tempSwapChain);
 
     //cast the swap chain to IDXGISwapChain3 to leverage the latest features
-    IDXGISwapChain3* swap_chain = {};
-    tempSwapChain->QueryInterface(IID_PPV_ARGS(&swap_chain));
+    swapChain = {};
+    tempSwapChain->QueryInterface(IID_PPV_ARGS(&swapChain));
     tempSwapChain->Release();
     tempSwapChain = nullptr;
 
@@ -131,7 +131,7 @@ void Renderer::InitD3D() {
     D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
     rtvHeapDesc.NumDescriptors = 2;
     rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+    hr = device->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
 
     rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -185,7 +185,7 @@ void Renderer::CreateDepthBuffer(int width, int height)
         clear_value.DepthStencil.Depth = 1.0f;
         clear_value.DepthStencil.Stencil = 0;
 
-        device->CreateCommittedResource(
+        HRESULT hr = device->CreateCommittedResource(
             &heap_properties,
             D3D12_HEAP_FLAG_NONE,
             &resource_desc,
@@ -202,7 +202,7 @@ void Renderer::CreateDepthBuffer(int width, int height)
 void Renderer::CreateFenceObjects()
 {
     UINT64 fence_value = 0;
-    device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+    HRESULT hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
     fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 }
 
@@ -216,7 +216,7 @@ void Renderer::CreateRootSignature()
     rootParameter.Descriptor.RegisterSpace = 0;
     rootParameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
-    ID3D12RootSignature* root_signature = nullptr;
+    ID3D12RootSignature* rootSignature = nullptr;
     D3D12_ROOT_SIGNATURE_DESC root_signature_desc = {};
     root_signature_desc.NumParameters = 1;
     root_signature_desc.pParameters = &rootParameter;
@@ -226,8 +226,8 @@ void Renderer::CreateRootSignature()
 
     ID3DBlob* signature_blob = nullptr;
     ID3DBlob* error_blob = nullptr;
-    D3D12SerializeRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1, &signature_blob, &error_blob);
-    device->CreateRootSignature(0, signature_blob->GetBufferPointer(), signature_blob->GetBufferSize(), IID_PPV_ARGS(&root_signature));
+    HRESULT hr = D3D12SerializeRootSignature(&root_signature_desc, D3D_ROOT_SIGNATURE_VERSION_1, &signature_blob, &error_blob);
+    hr = device->CreateRootSignature(0, signature_blob->GetBufferPointer(), signature_blob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 
     if (signature_blob) {
         signature_blob->Release();
@@ -255,7 +255,7 @@ void Renderer::CreateConstBuffer()
     bufferDesc.SampleDesc.Count = 1;
     bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    device->CreateCommittedResource(
+    HRESULT hr = device->CreateCommittedResource(
         &heapProps,
         D3D12_HEAP_FLAG_NONE,
         &bufferDesc,
@@ -265,15 +265,15 @@ void Renderer::CreateConstBuffer()
     );
 
     // Map once, keep pointer around
-    constantBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedCB));
+    hr = constantBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mappedCB));
 }
 
 void Renderer::CreatePipeline() {
     // TODO: compile shaders, create root signature, PSO
     // 
     //compile shaders
-    D3DCompileFromFile(L"shader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, &vertexShader, nullptr);
-    D3DCompileFromFile(L"shader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, &pixelShader, nullptr);
+    HRESULT hr = D3DCompileFromFile(L"shader.hlsl", nullptr, nullptr, "VSMain", "vs_5_0", 0, 0, &vertexShader, nullptr);
+    hr = D3DCompileFromFile(L"shader.hlsl", nullptr, nullptr, "PSMain", "ps_5_0", 0, 0, &pixelShader, nullptr);
 
     // Pipeline state -> basically everything we need is attached to this
     // shaders, blend mode, depth buff, params, primitives, etc.
