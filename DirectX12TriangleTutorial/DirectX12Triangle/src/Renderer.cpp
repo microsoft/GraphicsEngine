@@ -566,36 +566,25 @@ void Renderer::HandleX(float dir)
     c.PanRight(dir);
 }
 
+void Renderer::HandleMouseMove(float deltaX, float deltaY)
+{
+    c.MouseMovement(deltaX, deltaY);
+}
+
 void Renderer::Update() {
     //triangle_angle++;
-    /*
-    DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
-
-    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        DirectX::XMVectorSet(0.0f, 5.0f, -50.0f, 1.0f),
-        DirectX::XMVectorSet(fwdVec.x, fwdVec.y, fwdVec.z, fwdVec.w),
-        DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
-    );
-    DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
-        DirectX::XMConvertToRadians(45.0f),
-        static_cast<float>(width) / static_cast<float>(height),
-        0.1f,
-        100.0f
-    );
-    */
 
     DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
 
-    // Calculate camera target (where we're looking at)
     DirectX::XMVECTOR camPos = DirectX::XMLoadFloat3(&c.cameraPos);
     DirectX::XMVECTOR camForward = DirectX::XMLoadFloat3(&c.cameraForward);
     DirectX::XMVECTOR camTarget = DirectX::XMVectorAdd(camPos, camForward);
     DirectX::XMVECTOR camUp = DirectX::XMLoadFloat3(&c.cameraUp);
 
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        camPos,      // Camera position
-        camTarget,   // Look at target
-        camUp        // Up vector
+        camPos,      // eye
+        camTarget,   // look
+        camUp        
     );
 
     DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(

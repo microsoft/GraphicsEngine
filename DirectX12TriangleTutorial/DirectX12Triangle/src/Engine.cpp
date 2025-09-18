@@ -28,6 +28,34 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
             return 0;
         }
     }
+    else if (message == WM_RBUTTONUP) {
+        engine->firstMouse = true;
+    }
+    else if (message == WM_MOUSEMOVE) {
+        if (wParam && MK_RBUTTON) {
+            static POINT lastPos = { 0, 0 };
+            //engine->firstMouse = true;
+
+            POINT currentPos;
+            GetCursorPos(&currentPos);
+
+            if (engine->firstMouse) {
+                lastPos = currentPos;
+                engine->firstMouse = false;
+            }
+
+            float deltaX = static_cast<float>(currentPos.x - lastPos.x);
+            float deltaY = static_cast<float>(currentPos.y - lastPos.y);
+
+            if (engine) {
+                engine->renderer->HandleMouseMove(deltaX, deltaY);
+            }
+
+        }/*
+        else {
+            engine->firstMouse = true;
+        }*/
+    }
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 

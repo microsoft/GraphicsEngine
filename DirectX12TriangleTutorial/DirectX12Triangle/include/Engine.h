@@ -17,6 +17,8 @@ public:
 
     Renderer* renderer;
 
+    bool firstMouse;
+
 private:
     void InitWindow();
 
@@ -25,6 +27,5 @@ private:
     int width, height;
 
 	std::vector<Model> models;
-
 };
 

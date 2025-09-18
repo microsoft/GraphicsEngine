@@ -23,6 +23,7 @@ public:
 
     void HandleForward(float dir);
     void HandleX(float dir);
+    void HandleMouseMove(float deltaX, float deltaY);
 
 	void BindModel(Model &model);
 private:
@@ -39,7 +40,6 @@ private:
     void CreateTextureResources();
 
     Camera c;
-    DirectX::XMFLOAT4 fwdVec = DirectX::XMFLOAT4(0.0f, 5.0f, 0.0f, 1.0f);
 
     HWND hwnd;
     int width, height;
