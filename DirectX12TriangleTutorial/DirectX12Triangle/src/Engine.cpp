@@ -1,5 +1,7 @@
 #include "Engine.h"
 
+static Engine * engine = nullptr;
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     if (message == WM_DESTROY) {
         PostQuitMessage(0);
@@ -12,23 +14,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
             // Exit on Escape key
             PostQuitMessage(0);
             return 0;
-        case VK_SPACE:
-            // Example: Handle spacebar
-            // You could pass this to the renderer or handle it here
-            return 0;
-            // Add more key cases as needed
         case 'W':
-
+            engine->renderer->HandleForward(1.0f);
             return 0;
         case 'A':
-
+            engine->renderer->HandleX(-1.0f);
             return 0;
         case 'S':
-
+            engine->renderer->HandleForward(-1.0f);
             return 0;
         case 'D':
-            // Example: Handle WASD keys for camera movement
-            // You might want to store these in Engine class and pass to renderer
+            engine->renderer->HandleX(1.0f);
             return 0;
         }
     }
@@ -37,7 +33,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
 
 Engine::Engine(HINSTANCE hInstance, int width, int height) 
     : hInstance(hInstance), hwnd(nullptr), width(width), height(height), renderer(nullptr)
-{}
+{
+    engine = this;
+}
 
 Engine::~Engine() {
 	Cleanup();

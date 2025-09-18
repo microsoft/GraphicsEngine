@@ -131,6 +131,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="src\Engine.cpp" />
     <ClCompile Include="src\Image.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -138,6 +139,7 @@
     <ClCompile Include="src\Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="include\Engine.h" />
     <ClInclude Include="include\File.h" />
     <ClInclude Include="include\Image.h" />

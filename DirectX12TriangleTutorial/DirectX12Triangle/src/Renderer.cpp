@@ -1,12 +1,12 @@
 #include "Renderer.h"
 //#include "ShaderCompiler.h"
 #include <stdexcept>
-#include <d3dcompiler.h>
 #include <iostream>  // for debug output
 
 Renderer::Renderer(HWND hwnd, int width, int height)
 	: hwnd(hwnd), width(width), height(height) {
     this->model = nullptr;
+    this->c = Camera();
 }
 
 Renderer::~Renderer() {}
@@ -554,14 +554,50 @@ void Renderer::CreateAssets() {
     }
 }
 
+void Renderer::HandleForward(float dir)
+{
+    //this->fwdVec.y += dir * 2.0f;
+    c.PanForward(dir);
+}
+
+void Renderer::HandleX(float dir)
+{
+    //this->fwdVec.x += dir * 2.0f;
+    c.PanRight(dir);
+}
+
 void Renderer::Update() {
     //triangle_angle++;
-    DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(triangle_angle)));
+    /*
+    DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
+
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
         DirectX::XMVectorSet(0.0f, 5.0f, -50.0f, 1.0f),
-        DirectX::XMVectorSet(0.0f, 5.0f, 0.0f, 1.0f),
+        DirectX::XMVectorSet(fwdVec.x, fwdVec.y, fwdVec.z, fwdVec.w),
         DirectX::XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
     );
+    DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
+        DirectX::XMConvertToRadians(45.0f),
+        static_cast<float>(width) / static_cast<float>(height),
+        0.1f,
+        100.0f
+    );
+    */
+
+    DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
+
+    // Calculate camera target (where we're looking at)
+    DirectX::XMVECTOR camPos = DirectX::XMLoadFloat3(&c.cameraPos);
+    DirectX::XMVECTOR camForward = DirectX::XMLoadFloat3(&c.cameraForward);
+    DirectX::XMVECTOR camTarget = DirectX::XMVectorAdd(camPos, camForward);
+    DirectX::XMVECTOR camUp = DirectX::XMLoadFloat3(&c.cameraUp);
+
+    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
+        camPos,      // Camera position
+        camTarget,   // Look at target
+        camUp        // Up vector
+    );
+
     DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
         DirectX::XMConvertToRadians(45.0f),
         static_cast<float>(width) / static_cast<float>(height),

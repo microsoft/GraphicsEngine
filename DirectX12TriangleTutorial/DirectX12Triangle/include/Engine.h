@@ -15,6 +15,8 @@ public:
     void Run();
     void Cleanup();
 
+    Renderer* renderer;
+
 private:
     void InitWindow();
 
@@ -22,7 +24,6 @@ private:
     HWND hwnd;
     int width, height;
 
-    Renderer* renderer;
 	std::vector<Model> models;
 
 };
