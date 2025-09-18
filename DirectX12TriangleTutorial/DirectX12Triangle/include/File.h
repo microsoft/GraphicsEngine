@@ -37,11 +37,21 @@ inline std::string GetAssetPath(const std::string& assetName) {
 	// EnumerateAssetFiles returns the full paths
 	// We want to find the one that ends with assetName
 	for (const auto& file : assetFiles) {
-		if (file.size() >= assetName.size() &&
+
+		// Extract just the filename (handles both / and \ as separators)
+		size_t pos = file.find_last_of("/\\");
+		std::string filename = (pos != std::string::npos) ? file.substr(pos + 1) : file;
+
+		/*if (file.size() >= assetName.size() &&
 			file.compare(file.size() - assetName.size(), assetName.size(), assetName) == 0) {
+			return file;
+		}*/
+
+		if (filename.compare(assetName) == 0) {
 			return file;
 		}
 	}
+
 	return "";
 }
 

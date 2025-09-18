@@ -555,7 +555,7 @@ void Renderer::CreateAssets() {
 }
 
 void Renderer::Update() {
-    triangle_angle++;
+    //triangle_angle++;
     DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(triangle_angle)));
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
         DirectX::XMVectorSet(0.0f, 5.0f, -50.0f, 1.0f),
