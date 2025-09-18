@@ -1,8 +1,14 @@
 #include "Image.h"
 
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <vector>
 #include <windows.h>
+#include "File.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 void Image::SetPixel(int x, int y, const Pixel& color) {
 	if (x >= 0 && x < width && y >= 0 && y < height) {
@@ -45,6 +51,11 @@ void Image::saveBitmap(const std::string& filename) {
 	fclose(file);
 }
 
+void Image::LoadFromImage(const std::string& filename) {
+	std::string fullPath = GetAssetPath(filename);
+	this->raw_data = stbi_load(fullPath.c_str(), &width, &height, &channels, 4);
+}
+
 void Image::Clear(const Pixel& color) {
 	std::fill(pixels.begin(), pixels.end(), color);
 }
@@ -64,4 +75,8 @@ Pixel Image::GetPixel(int x, int y) const {
 	} else {
 		return {0, 0, 0, 0}; // Return a default color if out of bounds
 	}
+}
+
+unsigned char* Image::data() {
+	return this->raw_data;
 }

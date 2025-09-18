@@ -33,7 +33,7 @@ void Engine::InitWindow() {
 void Engine::Init() {
     InitWindow();
     models.resize(1);
-    models[0].LoadFromObj("C:\\Users\\aaronhong\\Repos\\hackathon\\GraphicsEngine\\DirectX12TriangleTutorial\\DirectX12Triangle\\assets\\Tree\\Tree1.obj");
+    models[0].LoadFromObj("cottage_obj.obj");
     renderer = new Renderer(hwnd, width, height);
     renderer->BindModel(models[0]);
     renderer->Init();

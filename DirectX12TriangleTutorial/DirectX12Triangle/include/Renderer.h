@@ -31,6 +31,7 @@ private:
     void CreateConstBuffer();
     void CreatePipeline();
     void CreateAssets();
+    void CreateTextureResources();
 
     HWND hwnd;
     int width, height;
@@ -61,6 +62,10 @@ private:
     MVPConstants cbData;       // CPU-side struct
     MVPConstants* mappedCB = nullptr;
 
+    ID3D12Resource* materialBuffer;
+    MaterialConstants matData;
+    MaterialConstants* mappedMat = nullptr;
+
     ID3DBlob* vertexShader = nullptr;
     ID3DBlob* pixelShader = nullptr;
 
@@ -79,5 +84,18 @@ private:
     ID3D12Resource* vertex_buffer_upload = nullptr; //slow. CPU and GPU access
     ID3D12Resource* index_buffer = nullptr; //fast. GPU access only
     ID3D12Resource* index_buffer_upload = nullptr; //slow. CPU and GPU access
+
+    ComPtr<ID3D12Resource> textureResource;
+    ComPtr<ID3D12DescriptorHeap> srvHeap;
+    ComPtr<ID3D12Resource> textureUploadHeap; // Keep this alive until upload is done
+
+    // Multi-material support
+    struct DrawRange { UINT startIndex; UINT indexCount; UINT materialIndex; };
+    std::vector<DrawRange> drawRanges; // Built after uploading indices
+    std::vector<ComPtr<ID3D12Resource>> materialTextures; // One per material
+    std::vector<ComPtr<ID3D12Resource>> materialUploadHeaps; // Keep alive until copies finish
+
+    ComPtr<ID3D12Resource> defaultTexture;  
+    ComPtr<ID3D12Resource> defaultUploadHeap; 
 };
 

@@ -5,66 +5,11 @@
 #include <sstream>
 #include <map>
 #include <limits>
-
-void Model::createCube() {
-
-	this->vertices = {
-		// Front face
-		{ {-0.5f, -0.5f, +0.5f}, {0.0f, 0.0f, 1.0f} },  // 0
-		{ {-0.5f, +0.5f, +0.5f}, {0.0f, 0.0f, 1.0f} },  // 1
-		{ {+0.5f, +0.5f, +0.5f}, {0.0f, 0.0f, 1.0f} },  // 2
-		{ {+0.5f, -0.5f, +0.5f}, {0.0f, 0.0f, 1.0f} },  // 3
-
-		// Back face
-		{ {+0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f} }, // 4
-		{ {+0.5f, +0.5f, -0.5f}, {0.0f, 0.0f, -1.0f} }, // 5
-		{ {-0.5f, +0.5f, -0.5f}, {0.0f, 0.0f, -1.0f} }, // 6
-		{ {-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, -1.0f} }, // 7
-
-		// Left face
-		{ {-0.5f, -0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f} }, // 8
-		{ {-0.5f, +0.5f, -0.5f}, {-1.0f, 0.0f, 0.0f} }, // 9
-		{ {-0.5f, +0.5f, +0.5f}, {-1.0f, 0.0f, 0.0f} }, // 10
-		{ {-0.5f, -0.5f, +0.5f}, {-1.0f, 0.0f, 0.0f} }, // 11
-
-		// Right face
-		{ {+0.5f, -0.5f, +0.5f}, {1.0f, 0.0f, 0.0f} },  // 12
-		{ {+0.5f, +0.5f, +0.5f}, {1.0f, 0.0f, 0.0f} },  // 13
-		{ {+0.5f, +0.5f, -0.5f}, {1.0f, 0.0f, 0.0f} },  // 14
-		{ {+0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f} },  // 15
-
-		// Top face
-		{ {-0.5f, +0.5f, +0.5f}, {0.0f, 1.0f, 0.0f} },  // 16
-		{ {-0.5f, +0.5f, -0.5f}, {0.0f, 1.0f, 0.0f} },  // 17
-		{ {+0.5f, +0.5f, -0.5f}, {0.0f, 1.0f, 0.0f} },  // 18
-		{ {+0.5f, +0.5f, +0.5f}, {0.0f, 1.0f, 0.0f} },  // 19
-
-		// Bottom face
-		{ {-0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f} }, // 20
-		{ {-0.5f, -0.5f, +0.5f}, {0.0f, -1.0f, 0.0f} }, // 21
-		{ {+0.5f, -0.5f, +0.5f}, {0.0f, -1.0f, 0.0f} }, // 22
-		{ {+0.5f, -0.5f, -0.5f}, {0.0f, -1.0f, 0.0f} }  // 23
-	};
-
-	this->indices = {
-		// Front face (0,1,2,3)
-		0, 1, 2,  0, 2, 3,
-		// Back face (4,5,6,7)
-		4, 5, 6,  4, 6, 7,
-		// Left face (8,9,10,11)
-		8, 9, 10, 8, 10, 11,
-		// Right face (12,13,14,15)
-		12, 13, 14, 12, 14, 15,
-		// Top face (16,17,18,19)
-		16, 17, 18, 16, 18, 19,
-		// Bottom face (20,21,22,23)
-		20, 21, 22, 20, 22, 23
-	};
-}
+#include "File.h"
 
 void Model::LoadFromObj(const std::string& filename) {
 	// Open the file
-	std::ifstream file(filename);
+	std::ifstream file = OpenAssetFile(filename);
 	if (!file.is_open()) {
 		std::cerr << "Failed to open OBJ file: " << filename << std::endl;
 		return;
@@ -75,8 +20,11 @@ void Model::LoadFromObj(const std::string& filename) {
 	std::vector<DirectX::XMFLOAT3> temp_vertices;
 	std::vector<DirectX::XMFLOAT2> temp_uvs;
 	std::vector<DirectX::XMFLOAT3> temp_normals;
+	std::vector<unsigned int> temp_materialIndices;
+	std::vector<std::string> mtl_files;
 
 	std::vector<unsigned int> vertexIndices, uvIndices, normalIndices;
+	unsigned int currentMaterialIndex = -1;
 
 	while (std::getline(file, line)) {
 		std::istringstream iss(line);
@@ -90,6 +38,9 @@ void Model::LoadFromObj(const std::string& filename) {
 		else if (prefix == "vt") {
 			DirectX::XMFLOAT2 uv;
 			iss >> uv.x >> uv.y;
+			// OBJ UV coordinates have Y=0 at bottom, but DirectX expects Y=0 at top
+			// So we need to flip the V coordinate
+			uv.y = 1.0f - uv.y;
 			temp_uvs.push_back(uv);
 		}
 		else if (prefix == "vn") {
@@ -105,67 +56,133 @@ void Model::LoadFromObj(const std::string& filename) {
 		}
 		else if (prefix == "f") {
 			// Parse entire face (which may be triangle, quad, or ngon) and triangulate (fan)
-			// Supported formats: v, v/vt, v//vn, v/vt/vn; supports negative indices per OBJ spec.
 			struct FaceVert { int v; int vt; int vn; };
 			std::vector<FaceVert> faceVerts;
 			std::string token;
 			while (iss >> token) {
 				if (token.empty()) continue;
 				FaceVert fv{ -1, -1, -1 };
-				// Split token by '/'
-				size_t firstSlash = token.find('/');
-				if (firstSlash == std::string::npos) {
-					fv.v = std::stoi(token);
-				}
-				else {
-					std::string vPart = token.substr(0, firstSlash);
-					fv.v = vPart.empty() ? 0 : std::stoi(vPart);
-					size_t secondSlash = token.find('/', firstSlash + 1);
-					if (secondSlash == std::string::npos) {
-						// v/vt
-						std::string vtPart = token.substr(firstSlash + 1);
-						if (!vtPart.empty()) fv.vt = std::stoi(vtPart);
-					}
-					else {
-						// v//vn or v/vt/vn
-						std::string vtPart = token.substr(firstSlash + 1, secondSlash - firstSlash - 1);
-						std::string vnPart = token.substr(secondSlash + 1);
-						if (!vtPart.empty()) fv.vt = std::stoi(vtPart);
-						if (!vnPart.empty()) fv.vn = std::stoi(vnPart);
+				
+				// Parse vertex/texture/normal indices
+				size_t slash1 = token.find('/');
+				if (slash1 == std::string::npos) {
+					// Just vertex index
+					fv.v = std::stoi(token) - 1;
+				} else {
+					// Has at least vertex/texture
+					fv.v = std::stoi(token.substr(0, slash1)) - 1;
+					size_t slash2 = token.find('/', slash1 + 1);
+					if (slash2 == std::string::npos) {
+						// vertex/texture format
+						std::string uvStr = token.substr(slash1 + 1);
+						if (!uvStr.empty()) {
+							fv.vt = std::stoi(uvStr) - 1;
+						}
+					} else {
+						// vertex/texture/normal or vertex//normal format
+						std::string uvStr = token.substr(slash1 + 1, slash2 - slash1 - 1);
+						if (!uvStr.empty()) {
+							fv.vt = std::stoi(uvStr) - 1;
+						}
+						std::string normStr = token.substr(slash2 + 1);
+						if (!normStr.empty()) {
+							fv.vn = std::stoi(normStr) - 1;
+						}
 					}
 				}
 				faceVerts.push_back(fv);
 			}
 
 			if (faceVerts.size() < 3) continue; // not a valid face
-
+			
+			// Convert OBJ indices (1-based) to 0-based, handling negative indices
 			auto convertIndex = [](int idx, size_t count) -> unsigned int {
-				if (idx > 0) return static_cast<unsigned int>(idx - 1); // 1-based positive
-				if (idx < 0) return static_cast<unsigned int>(static_cast<int>(count) + idx); // negative relative
-				return 0; // should not happen (OBJ indices are 1-based) but guard
+				if (idx < 0) return static_cast<unsigned int>(count + idx);
+				return static_cast<unsigned int>(idx);
 			};
 
+			// Fan triangulation
 			for (size_t t = 1; t + 1 < faceVerts.size(); ++t) {
-				FaceVert tri[3] = { faceVerts[0], faceVerts[t], faceVerts[t + 1] };
-				for (int k = 0; k < 3; ++k) {
-					unsigned int vIdx = convertIndex(tri[k].v, temp_vertices.size());
-					unsigned int vtIdx = (tri[k].vt == -1) ? std::numeric_limits<unsigned int>::max() : convertIndex(tri[k].vt, temp_uvs.size());
-					unsigned int vnIdx = (tri[k].vn == -1) ? std::numeric_limits<unsigned int>::max() : convertIndex(tri[k].vn, temp_normals.size());
-					vertexIndices.push_back(vIdx);
-					uvIndices.push_back(vtIdx);
-					normalIndices.push_back(vnIdx);
+				// Triangle: 0, t, t+1
+				vertexIndices.push_back(convertIndex(faceVerts[0].v, temp_vertices.size()));
+				vertexIndices.push_back(convertIndex(faceVerts[t].v, temp_vertices.size()));
+				vertexIndices.push_back(convertIndex(faceVerts[t + 1].v, temp_vertices.size()));
+				
+				// UV indices - use max value if not specified
+				if (faceVerts[0].vt >= 0) {
+					uvIndices.push_back(convertIndex(faceVerts[0].vt, temp_uvs.size()));
+				} else {
+					uvIndices.push_back(std::numeric_limits<unsigned int>::max());
 				}
+				
+				if (faceVerts[t].vt >= 0) {
+					uvIndices.push_back(convertIndex(faceVerts[t].vt, temp_uvs.size()));
+				} else {
+					uvIndices.push_back(std::numeric_limits<unsigned int>::max());
+				}
+				
+				if (faceVerts[t + 1].vt >= 0) {
+					uvIndices.push_back(convertIndex(faceVerts[t + 1].vt, temp_uvs.size()));
+				} else {
+					uvIndices.push_back(std::numeric_limits<unsigned int>::max());
+				}
+				
+				// Normal indices, use max value if not specified
+				if (faceVerts[0].vn >= 0) {
+					normalIndices.push_back(convertIndex(faceVerts[0].vn, temp_normals.size()));
+				} else {
+					normalIndices.push_back(std::numeric_limits<unsigned int>::max());
+				}
+				
+				if (faceVerts[t].vn >= 0) {
+					normalIndices.push_back(convertIndex(faceVerts[t].vn, temp_normals.size()));
+				} else {
+					normalIndices.push_back(std::numeric_limits<unsigned int>::max());
+				}
+				
+				if (faceVerts[t + 1].vn >= 0) {
+					normalIndices.push_back(convertIndex(faceVerts[t + 1].vn, temp_normals.size()));
+				} else {
+					normalIndices.push_back(std::numeric_limits<unsigned int>::max());
+				}
+				
+				// Store material index for this face
+				temp_materialIndices.push_back(currentMaterialIndex);
+				temp_materialIndices.push_back(currentMaterialIndex);
+				temp_materialIndices.push_back(currentMaterialIndex);
 			}
 		}
+		else if (prefix == "mtllib") {
+			std::string mtlFile;
+			iss >> mtlFile;
+			if (!mtlFile.empty()) {
+				LoadMTL(mtlFile);
+				mtl_files.push_back(mtlFile);
+			}
+		}
+		else if (prefix == "usemtl") {
+			std::string materialName;
+			iss >> materialName;
+			// Need to ensure that the faces parsed after this are associated with the correct material
+			if (materialMap.find(materialName) != materialMap.end()) {
+				currentMaterialIndex = materialMap[materialName];
+			}
+			else {
+				std::cerr << "Warning: Material " << materialName << " not found in material map." << std::endl;
+			}
+
+		}
 	}
+
 	// Now create the final vertex list
-	std::map<std::tuple<unsigned int, unsigned int, unsigned int>, unsigned int> uniqueVertexMap;
+	std::map<std::tuple<unsigned int, unsigned int, unsigned int>, unsigned int> uniqueVertexMap; 
 	bool missingNormals = false;
 	for (size_t i = 0; i < vertexIndices.size(); i++) {
 		unsigned int vIdx = vertexIndices[i];
 		unsigned int uvIdx = uvIndices[i];
 		unsigned int nIdx = normalIndices[i];
-		auto key = std::make_tuple(vIdx, uvIdx, nIdx);
+		unsigned int mIdx = temp_materialIndices[i];
+		auto key = std::make_tuple(vIdx, uvIdx, nIdx);  
 		if (uniqueVertexMap.find(key) == uniqueVertexMap.end()) {
 			Vertex vert;
 			vert.position = temp_vertices[vIdx];
@@ -186,6 +203,10 @@ void Model::LoadFromObj(const std::string& filename) {
 			unsigned int newIndex = static_cast<unsigned int>(vertices.size() - 1);
 			uniqueVertexMap[key] = newIndex;
 			indices.push_back(newIndex);
+			// Store material per face (every 3 indices = 1 face)
+			if (i % 3 == 0) {  // Only store once per face
+				materialIndices.push_back(mIdx);
+			}
 		}
 		else {
 			indices.push_back(uniqueVertexMap[key]);
@@ -195,6 +216,77 @@ void Model::LoadFromObj(const std::string& filename) {
 	// If any normals were missing, compute flat normals.
 	if (missingNormals) {
 		ComputeNormals();
+	}
+
+	file.close();
+}
+
+void Model::LoadMTL(const std::string& path) {
+	std::ifstream file = OpenAssetFile(path);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open MTL file: " << path << std::endl;
+		return;
+	}
+
+	// Read and parse MTL file as needed
+	std::string line;
+	Material currentMaterial;
+	currentMaterial.initialized = false;
+	while (std::getline(file, line)) {
+		// Simple parsing example; expand as needed
+		std::istringstream iss(line);
+		std::string prefix;
+		iss >> prefix;
+		if (prefix == "newmtl") {
+			std::string materialName;
+			iss >> materialName;
+			// Handle new material
+			if (currentMaterial.initialized) {
+				// Store the previous material before starting a new one
+				materials.push_back(currentMaterial);
+				materialMap[materialNames.back()] = static_cast<unsigned int>(materials.size() - 1);
+			}
+			currentMaterial = Material();
+			currentMaterial.initialized = true;
+			materialNames.push_back(materialName);
+		}
+		else if (prefix == "Kd") {
+			float r, g, b;
+			iss >> r >> g >> b;
+			// Handle diffuse color
+			currentMaterial.diffuse = { r, g, b };
+		}
+		else if (prefix == "Ka") {
+			float r, g, b;
+			iss >> r >> g >> b;
+			// Handle ambient color
+			currentMaterial.ambient = { r, g, b };
+		}
+		else if (prefix == "Ks") {
+			float r, g, b;
+			iss >> r >> g >> b;
+			// Handle specular color
+			currentMaterial.specular = { r, g, b };
+		}
+		else if (prefix == "Ns") {
+			float shininess;
+			iss >> shininess;
+			// Handle shininess
+			currentMaterial.shininess = shininess;
+		}
+		else if (prefix == "map_Kd") {
+			std::string texturePath;
+			iss >> texturePath;
+			// Handle texture map
+			currentMaterial.diffuseMap = texturePath;
+			currentMaterial.textureImage.LoadFromImage(texturePath);
+		}
+	}
+
+	if(currentMaterial.initialized) {
+		// Store the last material
+		materials.push_back(currentMaterial);
+		materialMap[materialNames.back()] = static_cast<unsigned int>(materials.size() - 1);
 	}
 
 	file.close();
@@ -218,9 +310,7 @@ void Model::Clear() {
 	vertices.clear();
 	indices.clear();
 }
-void Model::GetVertices(std::vector<Vertex>& outVertices) const {
-	outVertices = vertices;
-}
+
 void Model::GetPositions(std::vector<DirectX::XMFLOAT3>& outPositions) const {
 	for (const auto& v : vertices) {
 		outPositions.push_back(v.position);
@@ -236,9 +326,7 @@ void Model::GetNormals(std::vector<DirectX::XMFLOAT3>& outNormals) const {
 		outNormals.push_back(v.normal);
 	}
 }
-void Model::GetIndices(std::vector<unsigned int>& outIndices) const {
-	outIndices = indices;
-}
+
 unsigned int Model::GetNumFaces() const {
 	return static_cast<unsigned int>(indices.size() / 3);
 }

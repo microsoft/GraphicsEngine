@@ -10,16 +10,21 @@ struct Pixel {
 
 class Image {
 public:
-	Image(int width, int height)
-		: width(width), height(height), pixels(width* height) { }
+	Image()
+		: width(0), height(0), channels(0), pixels(), raw_data(nullptr) { }
 	void SetPixel(int x, int y, const Pixel& color);
 	void saveBitmap(const std::string& filename);
 	void Clear(const Pixel& color);
 	void GetDimensions(int& outWidth, int& outHeight) const;
 	void GetPixels(std::vector<Pixel>& outPixels) const;
+	void LoadFromImage(const std::string& filename);
 	Pixel GetPixel(int x, int y) const;
+	int GetWidth() const { return width; }
+	int GetHeight() const { return height; }
+	unsigned char* data();
 
 private:
-	int width, height;
+	int width, height, channels;
+	unsigned char* raw_data;
 	std::vector<Pixel> pixels;
 };
