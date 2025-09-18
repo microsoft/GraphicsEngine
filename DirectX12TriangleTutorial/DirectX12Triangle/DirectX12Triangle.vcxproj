@@ -104,6 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Users\aaronhong\Repos\hackathon\GraphicsEngine\DirectX12TriangleTutorial\DirectX12Triangle\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -129,14 +130,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Engine.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="src\Engine.cpp" />
+    <ClCompile Include="src\Image.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\Model.cpp" />
+    <ClCompile Include="src\Renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Engine.h" />
-    <ClInclude Include="Model.h" />
-    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="include\Engine.h" />
+    <ClInclude Include="include\Image.h" />
+    <ClInclude Include="include\Model.h" />
+    <ClInclude Include="include\Primitives.h" />
+    <ClInclude Include="include\Renderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
