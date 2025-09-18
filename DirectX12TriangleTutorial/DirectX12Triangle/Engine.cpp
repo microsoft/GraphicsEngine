@@ -5,6 +5,33 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         PostQuitMessage(0);
         return 0;
     }
+    else if (message == WM_KEYDOWN) {
+        // Handle key press events here
+        switch (wParam) {
+        case VK_ESCAPE:
+            // Exit on Escape key
+            PostQuitMessage(0);
+            return 0;
+        case VK_SPACE:
+            // Example: Handle spacebar
+            // You could pass this to the renderer or handle it here
+            return 0;
+            // Add more key cases as needed
+        case 'W':
+
+            return 0;
+        case 'A':
+
+            return 0;
+        case 'S':
+
+            return 0;
+        case 'D':
+            // Example: Handle WASD keys for camera movement
+            // You might want to store these in Engine class and pass to renderer
+            return 0;
+        }
+    }
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
 
