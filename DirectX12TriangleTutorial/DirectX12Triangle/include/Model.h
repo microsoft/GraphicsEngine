@@ -12,21 +12,26 @@
 #include "Image.h"
 
 struct BoundingBox {
-    DirectX::XMFLOAT3 min;
-    DirectX::XMFLOAT3 max;
+    float minX;
+    float maxX;
+    float minZ;
+    float maxZ;
+    float minY;
+    float maxY;
 
-    BoundingBox() : min(FLT_MAX, FLT_MAX, FLT_MAX), max(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
-
-    bool Intersects(const DirectX::XMFLOAT3& point) const {
-        return point.x >= min.x && point.x <= max.x &&
-            point.y >= min.y && point.y <= max.y &&
-            point.z >= min.z && point.z <= max.z;
+    void SetBbox(float min_x, float max_x, float min_z, float max_z, float min_Y, float max_Y) {
+        minX = min_x;
+        maxX = max_x;
+        minZ = min_z;
+        maxZ = max_z;
+        minY = min_Y;
+        maxY = max_Y;
     }
 
-    bool Intersects(const BoundingBox& other) const {
-        return !(max.x < other.min.x || min.x > other.max.x ||
-            max.y < other.min.y || min.y > other.max.y ||
-            max.z < other.min.z || min.z > other.max.z);
+    bool Intersects(BoundingBox one, BoundingBox two) {
+        return (one.minX <= two.minX && one.maxX >= two.maxX) &&
+            (one.minZ <= two.minZ && one.maxZ >= two.maxZ) &&
+            (one.minY <= two.minY && one.maxY >= two.maxY);
     }
 };
 
@@ -71,7 +76,6 @@ public:
 	unsigned int GetNumIndices() const;
 	void ComputeNormals();
 	void Scale(float scaleFactor);
-    void createCube();
 	const std::vector<Material>& GetMaterials() const { return materials; }
 	const std::vector<unsigned int>& GetFaceMaterialIndices() const { return materialIndices; }
 
@@ -95,13 +99,7 @@ public:
 	void ApplyTransformation();
 	void SortByMaterial();
 
-    // Bounding box methods
-    const BoundingBox& GetBoundingBox() const { return boundingBox; }
-    const BoundingBox& GetWorldBoundingBox() const { return worldBoundingBox; }
-    void UpdateBoundingBox();
-    void UpdateWorldBoundingBox();
+    void ComputeBoundingBox();
 
-    // Bounding boxes
-    BoundingBox boundingBox;      // Local space
-    BoundingBox worldBoundingBox; // World space
+    BoundingBox b;
 };

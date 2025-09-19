@@ -105,6 +105,7 @@ void Engine::Init() {
     if (grassplane->LoadFromObj("grassplane.obj")) {
         std::cout << "Grassplane loaded: " << grassplane->GetNumVertices() << " vertices" << std::endl;
         grassplane->SetPosition(0.0f, 0.0f, 0.0f);
+        grassplane->ApplyTransformation();
         models.push_back(grassplane);
     } else {
         std::cout << "Failed to load grassplane.obj" << std::endl;
@@ -112,7 +113,7 @@ void Engine::Init() {
     }
 
     // randomly scatter trees
-    int treeNum = 50;
+    int treeNum = 5;
     std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
     std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
     std::random_device rd;
