@@ -16,12 +16,13 @@ inline std::string GetExecutablePath() {
 inline std::vector<std::string> EnumerateAssetFiles() {
 	std::vector<std::string> assetFiles;
 	std::filesystem::path exePath = GetExecutablePath();
-	std::filesystem::path assetsDir = exePath / "assets";
+	std::filesystem::path assetsDir = exePath.parent_path().parent_path() / "DirectX12Triangle" / "assets";
 	std::vector<std::string> assetDirectories;
 	
 	assetFiles.clear();
 	// Recursively find all subdirectories
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(assetsDir)) {
+		std::cout << entry.path().string() << std::endl;
 		if (entry.is_regular_file()) {
 			assetFiles.push_back(entry.path().string());
 		}

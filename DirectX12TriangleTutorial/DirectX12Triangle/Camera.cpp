@@ -26,7 +26,7 @@ void Camera::PanRight(float dir)
 void Camera::MouseMovement(float dx, float dy)
 {
 	yaw += dx * mouseSensitivity;
-	pitch += dy * mouseSensitivity;
+	pitch -= dy * mouseSensitivity;
 
 	// clamping due to gimbal 
 	const float maxPitch = DirectX::XM_PIDIV2 - 0.1f; // ~89 degrees
