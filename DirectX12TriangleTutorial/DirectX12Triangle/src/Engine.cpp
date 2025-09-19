@@ -26,12 +26,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         case 'D':
             engine->renderer->HandleX(-1.0f);
             return 0;
-        case 'M':
-            engine->renderer->HandleMouseMove(0.5f, engine->deltaX);
-            return 0;
-        case 'N':
-            engine->renderer->HandleMouseMove(-0.5f, -1 * engine->deltaX);
-            return 0;
         }
     }
     else if (message == WM_SETFOCUS)
@@ -44,38 +38,33 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         engine->firstMouse = true;
     }
     else if (message == WM_MOUSEMOVE) {
-        POINT currentPos;
+        if (wParam && MK_RBUTTON) {
+            POINT currentPos;
 
-        GetCursorPos(&currentPos);
+            GetCursorPos(&currentPos);
 
-        if (engine->firstMouse) {
-            engine->lastPos = currentPos;
-            engine->firstMouse = false;
+            if (engine->firstMouse) {
+                engine->lastPos = currentPos;
+                engine->firstMouse = false;
+            }
+
+            float deltaX = static_cast<float>(currentPos.x - engine->lastPos.x);
+            float deltaY = static_cast<float>(currentPos.y - engine->lastPos.y);
+
+            if (deltaX != 0.0f || deltaY != 0.0f) {
+                std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
+                OutputDebugStringA(test.c_str());
+
+                test = "deltaY: " + std::to_string(deltaY);
+                OutputDebugStringA(test.c_str());
+
+                engine->lastPos = currentPos;
+
+                if (engine) {
+                    engine->renderer->HandleMouseMove(deltaX, deltaY);
+                }
+            }
         }
-
-        float deltaX = static_cast<float>(currentPos.x - engine->lastPos.x);
-        float deltaY = static_cast<float>(currentPos.y - engine->lastPos.y);
-
-        std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
-        OutputDebugStringA(test.c_str());
-
-        test = "deltaY: " + std::to_string(deltaY);
-        OutputDebugStringA(test.c_str());
-
-        engine->lastPos = currentPos;
-
-        if (engine) {
-            engine->renderer->HandleMouseMove(deltaX, deltaY);
-        }
-
-        // Recenter cursor to prevent hitting window boundaries
-        RECT rect;
-        GetClientRect(hwnd, &rect);
-        POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
-        ClientToScreen(hwnd, &center);
-        SetCursorPos(center.x, center.y);
-        engine->lastPos = center;
-
     }
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
