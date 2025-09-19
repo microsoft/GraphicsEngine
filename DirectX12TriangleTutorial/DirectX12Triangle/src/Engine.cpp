@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include <iostream>
 
 static Engine * engine = nullptr;
 
@@ -106,11 +107,15 @@ void Engine::InitWindow() {
 
 void Engine::Init() {
     InitWindow();
+	std::cout << "Loading model..." << std::endl;
     models.resize(1);
     models[0].LoadFromObj("cottage_obj.obj");
+	std::cout << "Creating renderer..." << std::endl;
     renderer = new Renderer(hwnd, width, height);
     renderer->BindModel(models[0]);
+	std::cout << "Initializing renderer..." << std::endl;
     renderer->Init();
+	std::cout << "Initialization complete." << std::endl;
 }
 
 void Engine::Run() {

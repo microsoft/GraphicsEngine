@@ -2,6 +2,8 @@
 //#include "ShaderCompiler.h"
 #include <stdexcept>
 #include <iostream>  // for debug output
+#include <filesystem>
+#include "File.h"
 
 Renderer::Renderer(HWND hwnd, int width, int height)
 	: hwnd(hwnd), width(width), height(height) {
@@ -13,9 +15,13 @@ Renderer::~Renderer() {}
 
 void Renderer::Init() {
     InitD3D();
+	std::cout << "D3D initialized." << std::endl;
     CreatePipeline();
+	std::cout << "Pipeline created." << std::endl;
     CreateAssets();
+	std::cout << "Assets created." << std::endl;
     CreateTextureResources();
+	std::cout << "Textures created." << std::endl;
 }
 
 // for transparency (ex)
@@ -550,7 +556,18 @@ void Renderer::CreateAssets() {
     } else {
         DrawRange dr {0, static_cast<UINT>(totalIndices), 0};
         drawRanges.push_back(dr);
-        std::cout << "Using single draw range with material 0" << std::endl;
+        // std::cout << "Using single draw range with material 0" << std::endl;
+    }
+}
+
+void Renderer::UpdateTextures() {
+	bool needsUpdate = false;
+	std::string flagPath = GetAssetPath("UpdateTexture.txt");
+    if (std::filesystem::exists(flagPath)) {
+        model->RefreshTextures();
+		CreateTextureResources();
+
+		std::filesystem::remove(flagPath);
     }
 }
 
@@ -571,6 +588,7 @@ void Renderer::HandleMouseMove(float deltaX, float deltaY)
 
 void Renderer::Update() {
     //triangle_angle++;
+    UpdateTextures();
 
     DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
 
@@ -955,7 +973,7 @@ void Renderer::CreateTextureResources() {
                 srvDesc.Texture2D.MipLevels = 1;
                 device->CreateShaderResourceView(materialTextures[m].Get(), &srvDesc, currentHandle);
                 
-                std::cout << "Loaded texture (material " << m << "): " << width << "x" << height << " from " << mat.diffuseMap << std::endl;
+                // std::cout << "Loaded texture (material " << m << "): " << width << "x" << height << " from " << mat.diffuseMap << std::endl;
             } else {
                 // Create SRV pointing to default white texture
                 D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -965,7 +983,7 @@ void Renderer::CreateTextureResources() {
                 srvDesc.Texture2D.MipLevels = 1;
                 device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
                 
-                std::cout << "Using default white texture for material " << m << std::endl;
+                // std::cout << "Using default white texture for material " << m << std::endl;
             }
             
             // Always advance the handle to maintain alignment

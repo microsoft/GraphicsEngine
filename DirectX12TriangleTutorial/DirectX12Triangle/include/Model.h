@@ -35,6 +35,7 @@ public:
     void LoadFromObj(const std::string& path);
 	void LoadMTL(const std::string& path);
 	void MinMax(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ);
+	void RefreshTextures();
 	void Clear();
 	const std::vector<Vertex>& GetVertices() const { return vertices; }
 	const std::vector<unsigned int>& GetIndices() const { return indices; }

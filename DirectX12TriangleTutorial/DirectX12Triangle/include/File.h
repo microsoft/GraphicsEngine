@@ -16,7 +16,7 @@ inline std::string GetExecutablePath() {
 inline std::vector<std::string> EnumerateAssetFiles() {
 	std::vector<std::string> assetFiles;
 	std::filesystem::path exePath = GetExecutablePath();
-	std::filesystem::path assetsDir = exePath.parent_path().parent_path() / "DirectX12Triangle" / "assets";
+	std::filesystem::path assetsDir = exePath / "assets";
 	std::vector<std::string> assetDirectories;
 	
 	assetFiles.clear();
@@ -43,10 +43,10 @@ inline std::string GetAssetPath(const std::string& assetName) {
 		size_t pos = file.find_last_of("/\\");
 		std::string filename = (pos != std::string::npos) ? file.substr(pos + 1) : file;
 
-		/*if (file.size() >= assetName.size() &&
+		if (file.size() >= assetName.size() &&
 			file.compare(file.size() - assetName.size(), assetName.size(), assetName) == 0) {
 			return file;
-		}*/
+		}
 
 		if (filename.compare(assetName) == 0) {
 			return file;

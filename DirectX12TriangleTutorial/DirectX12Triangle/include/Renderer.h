@@ -38,6 +38,7 @@ private:
     void CreatePipeline();
     void CreateAssets();
     void CreateTextureResources();
+    void UpdateTextures();
 
     Camera c;
 

@@ -292,6 +292,14 @@ void Model::LoadMTL(const std::string& path) {
 	file.close();
 }
 
+void Model::RefreshTextures() {
+	for (auto& mat : materials) {
+		if (!mat.diffuseMap.empty()) {
+			mat.textureImage.LoadFromImage(mat.diffuseMap);
+		}
+	}
+}
+
 void Model::MinMax(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ) {
 	if (vertices.empty()) return;
 	minX = maxX = vertices[0].position.x;
