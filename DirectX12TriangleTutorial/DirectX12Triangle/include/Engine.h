@@ -4,6 +4,8 @@
 #include <vector>
 #include "Renderer.h"
 #include "Model.h"
+#include "Audio.h"
+#include "File.h"
 #include <filesystem>
 
 class Engine
@@ -29,6 +31,8 @@ private:
     HINSTANCE hInstance;
     HWND hwnd;
     int width, height;
+
+    AudioPlayer* audioPlayer;
 
 	std::vector<Model*> models;
 };
