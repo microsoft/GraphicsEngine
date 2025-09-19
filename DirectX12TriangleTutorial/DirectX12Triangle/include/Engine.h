@@ -17,7 +17,10 @@ public:
 
     Renderer* renderer;
 
-    bool firstMouse;
+    bool firstMouse = true;
+    POINT lastPos = { 0, 0 };
+
+    float deltaX = 0.9f;
 
 private:
     void InitWindow();

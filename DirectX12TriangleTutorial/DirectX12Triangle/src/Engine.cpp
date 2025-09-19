@@ -26,26 +26,41 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         case 'D':
             engine->renderer->HandleX(1.0f);
             return 0;
+        case 'M':
+            engine->renderer->HandleMouseMove(0.5f, engine->deltaX);
+            return 0;
+        case 'N':
+            engine->renderer->HandleMouseMove(-0.5f, -1 * engine->deltaX);
+            return 0;
         }
     }
-    else if (message == WM_RBUTTONUP) {
+    else if (message == WM_LBUTTONUP) {
         engine->firstMouse = true;
     }
     else if (message == WM_MOUSEMOVE) {
         if (wParam && MK_RBUTTON) {
-            static POINT lastPos = { 0, 0 };
+            
             //engine->firstMouse = true;
 
             POINT currentPos;
+
             GetCursorPos(&currentPos);
 
             if (engine->firstMouse) {
-                lastPos = currentPos;
+                engine->lastPos = currentPos;
                 engine->firstMouse = false;
             }
 
-            float deltaX = static_cast<float>(currentPos.x - lastPos.x);
-            float deltaY = static_cast<float>(currentPos.y - lastPos.y);
+            float deltaX = static_cast<float>(currentPos.x - engine->lastPos.x);
+            float deltaY = static_cast<float>(currentPos.y - engine->lastPos.y);
+
+            std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
+            OutputDebugStringA(test.c_str());
+
+            test = "deltaY: " + std::to_string(deltaY);
+            OutputDebugStringA(test.c_str());
+
+            engine->lastPos = currentPos;
 
             if (engine) {
                 engine->renderer->HandleMouseMove(deltaX, deltaY);

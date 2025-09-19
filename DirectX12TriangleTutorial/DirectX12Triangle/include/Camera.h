@@ -24,6 +24,6 @@ public:
     float pitch = 0.0f;  // Rotation around X axis
     float moveSpeed = 0.5f;
 
-    float mouseSensitivity = 0.005f;
+    float mouseSensitivity = 0.1f;
 };
 
