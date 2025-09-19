@@ -556,13 +556,11 @@ void Renderer::CreateAssets() {
 
 void Renderer::HandleForward(float dir)
 {
-    //this->fwdVec.y += dir * 2.0f;
     c.PanForward(dir);
 }
 
 void Renderer::HandleX(float dir)
 {
-    //this->fwdVec.x += dir * 2.0f;
     c.PanRight(dir);
 }
 
