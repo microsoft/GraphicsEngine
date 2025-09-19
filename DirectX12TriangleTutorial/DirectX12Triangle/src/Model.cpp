@@ -7,12 +7,19 @@
 #include <limits>
 #include "File.h"
 
-void Model::LoadFromObj(const std::string& filename) {
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+
+bool Model::LoadFromObj(const std::string& filename) {
 	// Open the file
 	std::ifstream file = OpenAssetFile(filename);
 	if (!file.is_open()) {
 		std::cerr << "Failed to open OBJ file: " << filename << std::endl;
-		return;
+		return false;
 	}
 
 	// Temporary storage for parsing
@@ -219,6 +226,8 @@ void Model::LoadFromObj(const std::string& filename) {
 	}
 
 	file.close();
+
+	return true;
 }
 
 void Model::LoadMTL(const std::string& path) {
@@ -360,4 +369,57 @@ void Model::Scale(float scaleFactor) {
 		vertex.position.y *= scaleFactor;
 		vertex.position.z *= scaleFactor;
 	}
+}
+
+void Model::ApplyTransformation() {
+    DirectX::XMMATRIX transformMatrix = GetModelMatrix();
+    
+    for (auto& vertex : vertices) {
+        // Transform position
+        DirectX::XMVECTOR pos = DirectX::XMLoadFloat3(&vertex.position);
+        pos = DirectX::XMVector3Transform(pos, transformMatrix);
+        DirectX::XMStoreFloat3(&vertex.position, pos);
+        
+        // Transform normal (use inverse transpose for correct normal transformation)
+        DirectX::XMVECTOR det;
+        DirectX::XMMATRIX normalMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixInverse(&det, transformMatrix));
+        DirectX::XMVECTOR norm = DirectX::XMLoadFloat3(&vertex.normal);
+        norm = DirectX::XMVector3TransformNormal(norm, normalMatrix);
+        norm = DirectX::XMVector3Normalize(norm);
+        DirectX::XMStoreFloat3(&vertex.normal, norm);
+    }
+    
+    // Reset transformation after applying
+    position = { 0.0f, 0.0f, 0.0f };
+    rotation = { 0.0f, 0.0f, 0.0f };
+    scale = { 1.0f, 1.0f, 1.0f };
+}
+
+// Add this method to Model class
+void Model::SortByMaterial() {
+    if (materials.empty()) return;
+    
+    // Create new sorted arrays
+    std::vector<Vertex> sortedVertices;
+    std::vector<unsigned int> sortedIndices;
+    std::vector<unsigned int> sortedMaterialIndices;
+    
+    // Group indices by material
+    for (unsigned int matIdx = 0; matIdx < materials.size(); ++matIdx) {
+        for (size_t i = 0; i < materialIndices.size(); i += 3) {
+            if (materialIndices[i] == matIdx) {
+                // Add these three indices
+                sortedIndices.push_back(indices[i]);
+                sortedIndices.push_back(indices[i + 1]);
+                sortedIndices.push_back(indices[i + 2]);
+                
+                sortedMaterialIndices.push_back(matIdx);
+                sortedMaterialIndices.push_back(matIdx);
+                sortedMaterialIndices.push_back(matIdx);
+            }
+        }
+    }
+    
+    indices = sortedIndices;
+    materialIndices = sortedMaterialIndices;
 }

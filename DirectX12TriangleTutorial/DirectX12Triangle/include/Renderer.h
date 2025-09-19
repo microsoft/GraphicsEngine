@@ -25,7 +25,8 @@ public:
     void HandleX(float dir);
     void HandleMouseMove(float deltaX, float deltaY);
 
-	void BindModel(Model &model);
+    void BindModels(const std::vector<Model*>& models);
+    void RenderModel(Model* model, int modelIndex);
 private:
     void InitD3D();
     void SetBlendState(D3D12_BLEND_DESC& blend_desc);
@@ -80,7 +81,8 @@ private:
     UINT rtvDescriptorSize;
     UINT frameIndex;
 
-    Model* model;
+    std::vector<Model*> models;
+    int currentModelIndex = 0;
 
     unsigned int triangle_angle = 10;
 
@@ -88,14 +90,12 @@ private:
 
     // shared mem = both cpu & gpu 
     // want to move to buffs which only on gpu mem (vram?)
-    ID3D12Resource* vertex_buffer = nullptr; //fast. GPU access only
-    ID3D12Resource* vertex_buffer_upload = nullptr; //slow. CPU and GPU access
-    ID3D12Resource* index_buffer = nullptr; //fast. GPU access only
-    ID3D12Resource* index_buffer_upload = nullptr; //slow. CPU and GPU access
+    std::vector<ID3D12Resource*> vertex_buffers;
+    std::vector<ID3D12Resource*> vertex_buffers_upload;
+    std::vector<ID3D12Resource*> index_buffers;
+    std::vector<ID3D12Resource*> index_buffers_upload;
 
     ComPtr<ID3D12Resource> textureResource;
-    ComPtr<ID3D12DescriptorHeap> srvHeap;
-    ComPtr<ID3D12Resource> textureUploadHeap; // Keep this alive until upload is done
 
     // Multi-material support
     struct DrawRange { UINT startIndex; UINT indexCount; UINT materialIndex; };
@@ -103,7 +103,18 @@ private:
     std::vector<ComPtr<ID3D12Resource>> materialTextures; // One per material
     std::vector<ComPtr<ID3D12Resource>> materialUploadHeaps; // Keep alive until copies finish
 
+    ID3D12DescriptorHeap* srvHeap = nullptr;
     ComPtr<ID3D12Resource> defaultTexture;  
     ComPtr<ID3D12Resource> defaultUploadHeap; 
+
+    D3D12_VIEWPORT viewport = {};
+    D3D12_RECT scissorRect = {};
+    UINT64 fenceValues[2] = {};  // Per frame fence values
+
+    struct ModelMaterialRange {
+        UINT startIndex;
+        UINT count;
+    };
+    std::vector<ModelMaterialRange> modelMaterialRanges;
 };
 

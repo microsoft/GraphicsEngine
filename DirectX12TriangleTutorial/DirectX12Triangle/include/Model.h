@@ -24,15 +24,21 @@ struct Material {
 class Model {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
-    std::vector<unsigned int> materialIndices; // Material index per face
-	std::map<std::string, unsigned int> materialMap; // Material name to index mapping
-	std::vector<Material> materials; // List of materials
-	std::vector<std::string> materialNames; // List of material names
+    std::vector<unsigned int> materialIndices;
+    std::map<std::string, unsigned int> materialMap;
+    std::vector<Material> materials;
+    std::vector<std::string> materialNames;
+
+    // Transformation properties
+    DirectX::XMFLOAT3 position = { 0.0f, 0.0f, 0.0f };
+    DirectX::XMFLOAT3 rotation = { 0.0f, 0.0f, 0.0f }; // Euler angles in radians
+    DirectX::XMFLOAT3 scale = { 1.0f, 1.0f, 1.0f };
+
     
 
 public:
 
-    void LoadFromObj(const std::string& path);
+    bool LoadFromObj(const std::string& path);
 	void LoadMTL(const std::string& path);
 	void MinMax(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ);
 	void Clear();
@@ -49,4 +55,24 @@ public:
     void createCube();
 	const std::vector<Material>& GetMaterials() const { return materials; }
 	const std::vector<unsigned int>& GetFaceMaterialIndices() const { return materialIndices; }
+
+    // Transformation methods
+    void SetPosition(float x, float y, float z) { position = { x, y, z }; }
+    void SetRotation(float x, float y, float z) { rotation = { x, y, z }; }
+    void SetScale(float x, float y, float z) { scale = { x, y, z }; }
+    
+    DirectX::XMFLOAT3 GetPosition() const { return position; }
+    DirectX::XMFLOAT3 GetRotation() const { return rotation; }
+    DirectX::XMFLOAT3 GetScale() const { return scale; }
+    
+    // Get the model's transformation matrix
+    DirectX::XMMATRIX GetModelMatrix() const {
+        DirectX::XMMATRIX S = DirectX::XMMatrixScaling(scale.x, scale.y, scale.z);
+        DirectX::XMMATRIX R = DirectX::XMMatrixRotationRollPitchYaw(rotation.x, rotation.y, rotation.z);
+        DirectX::XMMATRIX T = DirectX::XMMatrixTranslation(position.x, position.y, position.z);
+        return S * R * T;
+    }
+	
+	void ApplyTransformation();
+	void SortByMaterial();
 };

@@ -4,6 +4,7 @@
 #include <vector>
 #include "Renderer.h"
 #include "Model.h"
+#include <filesystem>
 
 class Engine
 {
@@ -29,6 +30,6 @@ private:
     HWND hwnd;
     int width, height;
 
-	std::vector<Model> models;
+	std::vector<Model*> models;
 };
 
