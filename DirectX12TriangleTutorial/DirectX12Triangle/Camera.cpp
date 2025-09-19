@@ -26,6 +26,7 @@ void Camera::PanForward(float dir)
     cameraPos.z += cos(yaw) * dir;
 
     // Keep camera at fixed walking height
+    const float walkingHeight = 5.0f;
     cameraPos.y = walkingHeight;
 }
 
@@ -35,6 +36,7 @@ void Camera::PanRight(float dir)
     cameraPos.z += cos(yaw + DirectX::XM_PIDIV2) * dir;
 
     // Keep camera at fixed walking height
+    const float walkingHeight = 5.0f;
     cameraPos.y = walkingHeight;
 }
 

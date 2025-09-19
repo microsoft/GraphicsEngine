@@ -18,13 +18,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
             engine->renderer->HandleForward(1.0f);
             return 0;
         case 'A':
-            engine->renderer->HandleX(1.0f);
+            engine->renderer->HandleX(-1.0f);
             return 0;
         case 'S':
             engine->renderer->HandleForward(-1.0f);
             return 0;
         case 'D':
-            engine->renderer->HandleX(-1.0f);
+            engine->renderer->HandleX(1.0f);
             return 0;
         }
     }
