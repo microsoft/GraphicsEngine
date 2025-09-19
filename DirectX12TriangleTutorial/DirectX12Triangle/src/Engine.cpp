@@ -63,10 +63,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                 engine->renderer->HandleMouseMove(deltaX, deltaY);
             }
 
-        }/*
-        else {
-            engine->firstMouse = true;
-        }*/
+        }
     }
     return DefWindowProc(hwnd, message, wParam, lParam);
 }
