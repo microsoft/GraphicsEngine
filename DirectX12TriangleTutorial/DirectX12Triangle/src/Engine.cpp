@@ -39,9 +39,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     }
     else if (message == WM_MOUSEMOVE) {
         if (wParam && MK_RBUTTON) {
-            
-            //engine->firstMouse = true;
-
             POINT currentPos;
 
             GetCursorPos(&currentPos);
