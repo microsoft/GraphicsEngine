@@ -2,10 +2,6 @@
 #include <iostream>
 #include <fstream>
 
-//#pragma comment(lib, "d3d12.lib")
-//#pragma comment(lib, "dxgi.lib")
-//#pragma comment(lib, "d3dcompiler.lib")
-
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     std::ofstream file;
     file.open ("cout.txt");

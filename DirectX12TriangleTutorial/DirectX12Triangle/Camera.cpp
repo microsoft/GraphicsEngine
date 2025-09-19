@@ -22,16 +22,20 @@ Camera::~Camera()
 
 void Camera::PanForward(float dir)
 {
-	cameraPos.x += cameraForward.x * dir;
-	cameraPos.y += cameraForward.y * dir;
-	cameraPos.z += cameraForward.z * dir;
+    cameraPos.x += sin(yaw) * dir;
+    cameraPos.z += cos(yaw) * dir;
+
+    // Keep camera at fixed walking height
+    cameraPos.y = walkingHeight;
 }
 
 void Camera::PanRight(float dir)
 {
-	cameraPos.x += cameraRight.x * dir;
-	cameraPos.y += cameraRight.y * dir;
-	cameraPos.z += cameraRight.z * dir;
+    cameraPos.x += sin(yaw + DirectX::XM_PIDIV2) * dir;
+    cameraPos.z += cos(yaw + DirectX::XM_PIDIV2) * dir;
+
+    // Keep camera at fixed walking height
+    cameraPos.y = walkingHeight;
 }
 
 void Camera::MouseMovement(float dx, float dy)
