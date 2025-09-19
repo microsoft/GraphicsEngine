@@ -95,7 +95,7 @@ void Engine::InitWindow() {
 void Engine::Init() {
     InitWindow();
     models.resize(1);
-    models[0].LoadFromObj("cottage_obj.obj");
+    models[0].LoadFromObj("grassplane.obj");
     renderer = new Renderer(hwnd, width, height);
     renderer->BindModel(models[0]);
     renderer->Init();

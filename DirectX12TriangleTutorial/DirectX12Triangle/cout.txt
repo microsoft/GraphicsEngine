@@ -1,3 +1,1 @@
-Loaded texture (material 0): 2048x2048 from cottage_diffuse.png
-Loaded texture (material 1): 1024x1024 from ground.png
-Loaded texture (material 2): 1024x1024 from ground.png
+Loaded texture (material 0): 1024x1024 from ground.png
