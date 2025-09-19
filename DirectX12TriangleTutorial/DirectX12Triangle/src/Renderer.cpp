@@ -43,6 +43,9 @@ void Renderer::Init() {
     scissorRect.top = 0;
     scissorRect.right = static_cast<LONG>(width);
     scissorRect.bottom = static_cast<LONG>(height);
+
+    c.models = &models;
+    //c.SetModels(&models);
 }
 
 // for transparency (ex)

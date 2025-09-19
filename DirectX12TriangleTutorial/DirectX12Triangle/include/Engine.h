@@ -31,5 +31,7 @@ private:
     int width, height;
 
 	std::vector<Model*> models;
+
+    std::vector<std::vector<float>> modelPos;
 };
 

@@ -10,6 +10,7 @@
 #ifdef max
 #undef max
 #endif
+using namespace std;
 #ifdef min
 #undef min
 #endif
@@ -227,6 +228,9 @@ bool Model::LoadFromObj(const std::string& filename) {
 
 	file.close();
 
+	UpdateBoundingBox();
+	UpdateWorldBoundingBox();
+
 	return true;
 }
 
@@ -393,6 +397,8 @@ void Model::ApplyTransformation() {
     position = { 0.0f, 0.0f, 0.0f };
     rotation = { 0.0f, 0.0f, 0.0f };
     scale = { 1.0f, 1.0f, 1.0f };
+
+	UpdateWorldBoundingBox();
 }
 
 // Add this method to Model class
@@ -422,4 +428,51 @@ void Model::SortByMaterial() {
     
     indices = sortedIndices;
     materialIndices = sortedMaterialIndices;
+}
+
+void Model::UpdateBoundingBox() {
+	boundingBox = BoundingBox();
+
+	for (const auto& vertex : vertices) {
+		boundingBox.min.x = min(boundingBox.min.x, vertex.position.x);
+		boundingBox.min.y = min(boundingBox.min.y, vertex.position.y);
+		boundingBox.min.z = min(boundingBox.min.z, vertex.position.z);
+
+		boundingBox.max.x = max(boundingBox.max.x, vertex.position.x);
+		boundingBox.max.y = max(boundingBox.max.y, vertex.position.y);
+		boundingBox.max.z = max(boundingBox.max.z, vertex.position.z);
+	}
+}
+
+void Model::UpdateWorldBoundingBox() {
+	// Transform the 8 corners of the local bounding box to world space
+	DirectX::XMMATRIX worldMatrix = GetModelMatrix();
+
+	DirectX::XMFLOAT3 corners[8] = {
+		DirectX::XMFLOAT3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
+		DirectX::XMFLOAT3(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z),
+		DirectX::XMFLOAT3(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z),
+		DirectX::XMFLOAT3(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z),
+		DirectX::XMFLOAT3(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z),
+		DirectX::XMFLOAT3(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z),
+		DirectX::XMFLOAT3(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z),
+		DirectX::XMFLOAT3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z)
+	};
+
+	worldBoundingBox = BoundingBox();
+
+	for (int i = 0; i < 8; i++) {
+		DirectX::XMVECTOR corner = DirectX::XMLoadFloat3(&corners[i]);
+		corner = DirectX::XMVector3Transform(corner, worldMatrix);
+		DirectX::XMFLOAT3 transformedCorner;
+		DirectX::XMStoreFloat3(&transformedCorner, corner);
+
+		worldBoundingBox.min.x = min(worldBoundingBox.min.x, transformedCorner.x);
+		worldBoundingBox.min.y = min(worldBoundingBox.min.y, transformedCorner.y);
+		worldBoundingBox.min.z = min(worldBoundingBox.min.z, transformedCorner.z);
+
+		worldBoundingBox.max.x = max(worldBoundingBox.max.x, transformedCorner.x);
+		worldBoundingBox.max.y = max(worldBoundingBox.max.y, transformedCorner.y);
+		worldBoundingBox.max.z = max(worldBoundingBox.max.z, transformedCorner.z);
+	}
 }
