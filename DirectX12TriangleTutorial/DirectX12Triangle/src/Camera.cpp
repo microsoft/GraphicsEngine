@@ -3,30 +3,93 @@
 
 Camera::Camera()
 {
+    // Set initial camera position
+    cameraPos = { 20.0f, 10.0f, -60.0f };
+    cameraForward = { 0.0f, 0.0f, 1.0f };
+    cameraUp = { 0.0f, 1.0f, 0.0f };
+    cameraRight = { 1.0f, 0.0f, 0.0f };
+    
+    yaw = 0.0f;
+    pitch = 0.0f;
+    mouseSensitivity = 0.005f;
+    
+    UpdateCameraVectors();
 }
 
 Camera::~Camera()
 {
 }
 
+bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {
+    if (!models) return false;
+
+    // Create a bounding box around the camera position
+    BoundingBox cameraBounds;
+    cameraBounds.SetBbox(newPosition.x - collisionRadius, 
+        newPosition.x + collisionRadius, 
+        newPosition.z - collisionRadius, 
+        newPosition.z + collisionRadius,
+        10.0f,
+        10.0f);
+
+	bool isColliding = false;
+
+    // Check collision with each model
+    for (const auto& model : *models) {
+        if (model) {
+            isColliding = cameraBounds.Intersects(model->b, cameraBounds);
+        }
+
+        if (isColliding) {
+            break;
+		}
+    }
+
+    return isColliding; // No collision
+}
+
 void Camera::PanForward(float dir)
 {
-	cameraPos.x += cameraForward.x * dir;
-	cameraPos.y += cameraForward.y * dir;
-	cameraPos.z += cameraForward.z * dir;
+    //cameraPos.x += sin(yaw) * dir;
+    //cameraPos.z += cos(yaw) * dir;
+
+    // Keep camera at fixed walking height
+    const float walkingHeight = 5.0f;
+    //cameraPos.y = walkingHeight;
+
+    DirectX::XMFLOAT3 newPos;
+    newPos.x = cameraPos.x + sin(yaw) * dir;
+    newPos.y = walkingHeight;
+    newPos.z = cameraPos.z + cos(yaw) * dir;
+
+    if (!CheckCollision(newPos)) {
+        cameraPos = newPos;
+    }
 }
 
 void Camera::PanRight(float dir)
 {
-	cameraPos.x += cameraRight.x * dir;
-	cameraPos.y += cameraRight.y * dir;
-	cameraPos.z += cameraRight.z * dir;
+    //cameraPos.x += sin(yaw + DirectX::XM_PIDIV2) * dir;
+    //cameraPos.z += cos(yaw + DirectX::XM_PIDIV2) * dir;
+
+    // Keep camera at fixed walking height
+    const float walkingHeight = 5.0f;
+    //cameraPos.y = walkingHeight;
+
+    DirectX::XMFLOAT3 newPos;
+    newPos.x = cameraPos.x + sin(yaw + DirectX::XM_PIDIV2) * dir;
+    newPos.y = walkingHeight;
+    newPos.z = cameraPos.z + cos(yaw + DirectX::XM_PIDIV2) * dir;
+
+    if (!CheckCollision(newPos)) {
+        cameraPos = newPos;
+    }
 }
 
 void Camera::MouseMovement(float dx, float dy)
 {
 	yaw += dx * mouseSensitivity;
-	pitch += dy * mouseSensitivity;
+	pitch -= dy * mouseSensitivity;
 
 	// clamping due to gimbal 
 	const float maxPitch = DirectX::XM_PIDIV2 - 0.1f; // ~89 degrees

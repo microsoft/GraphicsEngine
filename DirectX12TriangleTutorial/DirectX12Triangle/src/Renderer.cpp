@@ -44,6 +44,9 @@ void Renderer::Init() {
     scissorRect.top = 0;
     scissorRect.right = static_cast<LONG>(width);
     scissorRect.bottom = static_cast<LONG>(height);
+
+    c.models = &models;
+    //c.SetModels(&models);
 }
 
 void Renderer::UpdateTextures() {
@@ -667,7 +670,7 @@ void Renderer::Render() {
     commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
     
     // Clear
-    float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
     commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
     
@@ -695,16 +698,16 @@ void Renderer::Render() {
         DirectX::XMMATRIX model = models[i]->GetModelMatrix();
 
         // Debug: Print transformation matrix to verify it's not identity
-        DirectX::XMFLOAT4X4 modelFloat;
-        DirectX::XMStoreFloat4x4(&modelFloat, model);
-        OutputDebugStringA(("Model " + std::to_string(i) + " matrix:\n").c_str());
-        for (int row = 0; row < 4; row++) {
-            std::string rowStr = "";
-            for (int col = 0; col < 4; col++) {
-                rowStr += std::to_string(modelFloat.m[row][col]) + " ";
-            }
-            OutputDebugStringA((rowStr + "\n").c_str());
-        }
+        //DirectX::XMFLOAT4X4 modelFloat;
+        //DirectX::XMStoreFloat4x4(&modelFloat, model);
+        //OutputDebugStringA(("Model " + std::to_string(i) + " matrix:\n").c_str());
+        //for (int row = 0; row < 4; row++) {
+        //    std::string rowStr = "";
+        //    for (int col = 0; col < 4; col++) {
+        //        rowStr += std::to_string(modelFloat.m[row][col]) + " ";
+        //    }
+        //    OutputDebugStringA((rowStr + "\n").c_str());
+        //}
         
         // Update constant buffer for this model
         cbData.mvp = DirectX::XMMatrixTranspose(model * view * proj);

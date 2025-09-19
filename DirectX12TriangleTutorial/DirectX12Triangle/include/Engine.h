@@ -35,5 +35,7 @@ private:
     AudioPlayer* audioPlayer;
 
 	std::vector<Model*> models;
+
+    std::vector<std::vector<float>> modelPos;
 };
 

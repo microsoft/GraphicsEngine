@@ -11,6 +11,30 @@
 #include "Primitives.h"
 #include "Image.h"
 
+struct BoundingBox {
+    float minX;
+    float maxX;
+    float minZ;
+    float maxZ;
+    float minY;
+    float maxY;
+
+    void SetBbox(float min_x, float max_x, float min_z, float max_z, float min_Y, float max_Y) {
+        minX = min_x;
+        maxX = max_x;
+        minZ = min_z;
+        maxZ = max_z;
+        minY = min_Y;
+        maxY = max_Y;
+    }
+
+    bool Intersects(BoundingBox one, BoundingBox two) {
+        return (one.minX <= two.minX && one.maxX >= two.maxX) &&
+            (one.minZ <= two.minZ && one.maxZ >= two.maxZ) &&
+            (one.minY <= two.minY && one.maxY >= two.maxY);
+    }
+};
+
 struct Material {
 	DirectX::XMFLOAT3 ambient = DirectX::XMFLOAT3(0.2f, 0.2f, 0.2f);   // Ka
 	DirectX::XMFLOAT3 diffuse = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);   // Kd
@@ -52,7 +76,6 @@ public:
 	unsigned int GetNumIndices() const;
 	void ComputeNormals();
 	void Scale(float scaleFactor);
-    void createCube();
 	const std::vector<Material>& GetMaterials() const { return materials; }
 	const std::vector<unsigned int>& GetFaceMaterialIndices() const { return materialIndices; }
 
@@ -75,4 +98,8 @@ public:
 	
 	void ApplyTransformation();
 	void SortByMaterial();
+
+    void ComputeBoundingBox();
+
+    BoundingBox b;
 };
