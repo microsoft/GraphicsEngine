@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include <random>
 
 static Engine * engine = nullptr;
 
@@ -109,34 +110,62 @@ void Engine::Init() {
         std::cout << "Failed to load grassplane.obj" << std::endl;
         delete grassplane;
     }
+
+    // randomly scatter trees
+    int treeNum = 50;
+    std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
+    std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    for (int i = 0; i < treeNum; ++i) {
+        Model* tree = new Model();
+        if (tree->LoadFromObj("Mineways2Skfb.obj")) {
+            // Random position
+            float x = distX(gen);
+            float z = distZ(gen);
+            float y = -15.0f; // Keep trees at ground level
+
+            // tree->SortByMaterial(); // Multiple textures
+            std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
+            tree->SetPosition(x, y, z);
+            tree->SetScale(30.0f, 30.0f, 30.0f);
+            tree->ApplyTransformation();
+            models.push_back(tree);
+        }
+        else {
+            std::cout << "Failed to load tree.obj" << std::endl;
+            delete tree;
+        }
+    }
     
     // Example: Load tree
-    Model* tree = new Model();
-    if (tree->LoadFromObj("Mineways2Skfb.obj")) {
-        // tree->SortByMaterial(); // Multiple textures
-        std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
-        tree->SetPosition(50.0f, -15.0f, 0.0f);  
-        tree->SetScale(30.0f, 30.0f, 30.0f);
-        tree->ApplyTransformation();
-        models.push_back(tree);
-    } else {
-        std::cout << "Failed to load tree.obj" << std::endl;
-        delete tree;
-    }
+    //Model* tree = new Model();
+    //if (tree->LoadFromObj("Mineways2Skfb.obj")) {
+    //    // tree->SortByMaterial(); // Multiple textures
+    //    std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
+    //    tree->SetPosition(50.0f, -15.0f, 0.0f);  
+    //    tree->SetScale(30.0f, 30.0f, 30.0f);
+    //    tree->ApplyTransformation();
+    //    models.push_back(tree);
+    //} else {
+    //    std::cout << "Failed to load tree.obj" << std::endl;
+    //    delete tree;
+    //}
 
     // Example: Load tree
-    Model* tree2 = new Model();
-    if (tree2->LoadFromObj("Mineways2Skfb.obj")) {
-        // tree->SortByMaterial(); // Multiple textures
-        std::cout << "Tree loaded: " << tree2->GetNumVertices() << " vertices" << std::endl;
-        tree2->SetPosition(40.0f, -15.0f, 50.0f);  
-        tree2->SetScale(30.0f, 30.0f, 30.0f);
-        tree2->ApplyTransformation();
-        models.push_back(tree2);
-    } else {
-        std::cout << "Failed to load tree.obj" << std::endl;
-        delete tree;
-    }
+    //Model* tree2 = new Model();
+    //if (tree2->LoadFromObj("Mineways2Skfb.obj")) {
+    //    // tree->SortByMaterial(); // Multiple textures
+    //    std::cout << "Tree loaded: " << tree2->GetNumVertices() << " vertices" << std::endl;
+    //    tree2->SetPosition(40.0f, -15.0f, 50.0f);  
+    //    tree2->SetScale(30.0f, 30.0f, 30.0f);
+    //    tree2->ApplyTransformation();
+    //    models.push_back(tree2);
+    //} else {
+    //    std::cout << "Failed to load tree.obj" << std::endl;
+    //    delete tree;
+    //}
     
     // Example: Load cube
     Model* cube = new Model();
