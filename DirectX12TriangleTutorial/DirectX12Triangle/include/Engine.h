@@ -15,6 +15,13 @@ public:
     void Run();
     void Cleanup();
 
+    Renderer* renderer;
+
+    bool firstMouse = true;
+    POINT lastPos = { 0, 0 };
+
+    float deltaX = 0.9f;
+
 private:
     void InitWindow();
 
@@ -22,8 +29,6 @@ private:
     HWND hwnd;
     int width, height;
 
-    Renderer* renderer;
 	std::vector<Model> models;
-
 };
 

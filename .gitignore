@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+!/DirectX12TriangleTutorial/DirectX12Triangle/assets/**/*.obj
+!/DirectX12TriangleTutorial/DirectX12Triangle/assets/*.obj

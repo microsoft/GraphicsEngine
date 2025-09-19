@@ -3,9 +3,11 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
+#include <d3dcompiler.h>
 #include "Model.h"
 #include <vector>
 #include "Primitives.h"
+#include "Camera.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -18,6 +20,10 @@ public:
     void Init();
     void Update();
     void Render();
+
+    void HandleForward(float dir);
+    void HandleX(float dir);
+    void HandleMouseMove(float deltaX, float deltaY);
 
 	void BindModel(Model &model);
 private:
@@ -32,6 +38,8 @@ private:
     void CreatePipeline();
     void CreateAssets();
     void CreateTextureResources();
+
+    Camera c;
 
     HWND hwnd;
     int width, height;
