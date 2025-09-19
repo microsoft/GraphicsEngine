@@ -100,6 +100,8 @@ void Engine::Init() {
     // Load multiple models
     models.clear();
     
+    std::vector<BoundingBox> placedBoundingBoxes;
+
     // Example: Load grassplane
     Model* grassplane = new Model();
     if (grassplane->LoadFromObj("grassplane.obj")) {
@@ -112,8 +114,26 @@ void Engine::Init() {
         delete grassplane;
     }
 
+    // Example: Load cube
+    Model* cube = new Model();
+    if (cube->LoadFromObj("cottage_obj.obj")) {
+        std::cout << "Cube loaded: " << cube->GetNumVertices() << " vertices" << std::endl;
+        cube->SetPosition(-10.0f, 0.0f, 0.0f);
+        cube->SetRotation(0.0f, DirectX::XM_PIDIV2, 0.0f); // DirectX::XM_PIDIV4
+        cube->SetScale(2.0f, 2.0f, 2.0f);
+        cube->ApplyTransformation();
+        models.push_back(cube);
+
+		placedBoundingBoxes.push_back(cube->b);
+    }
+    else {
+        std::cout << "Failed to load cube.obj" << std::endl;
+        delete cube;
+    }
+
     // randomly scatter trees
-    int treeNum = 5;
+    int treeNum = 50;
+    int maxAttempts = 100; // Maximum attempts to place each tree
     std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
     std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
     std::random_device rd;
@@ -122,17 +142,50 @@ void Engine::Init() {
     for (int i = 0; i < treeNum; ++i) {
         Model* tree = new Model();
         if (tree->LoadFromObj("Mineways2Skfb.obj")) {
-            // Random position
-            float x = distX(gen);
-            float z = distZ(gen);
-            float y = -15.0f; // Keep trees at ground level
+            bool placed = false;
 
-            // tree->SortByMaterial(); // Multiple textures
-            std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
-            tree->SetPosition(x, y, z);
-            tree->SetScale(30.0f, 30.0f, 30.0f);
-            tree->ApplyTransformation();
-            models.push_back(tree);
+            // Try to find a non-intersecting position
+            for (int attempt = 0; attempt < maxAttempts; ++attempt) {
+                // Random position
+                float x = distX(gen);
+                float z = distZ(gen);
+                float y = -15.0f; // Keep trees at ground level
+
+                // Set position and scale, then apply transformation to compute bounding box
+                tree->SetPosition(x, y, z);
+                tree->SetScale(30.0f, 30.0f, 30.0f);
+                tree->ApplyTransformation();
+
+                // Check if this tree intersects with any already placed model
+                bool intersects = false;
+                for (const auto& existingBox : placedBoundingBoxes) {
+                    if (tree->b.Intersects(existingBox, tree->b)) {
+                        intersects = true;
+                        break;
+                    }
+                }
+
+                if (!intersects) {
+                    // Successfully placed without intersection
+                    models.push_back(tree);
+                    placedBoundingBoxes.push_back(tree->b);
+                    placed = true;
+                    break;
+                }
+            }
+
+
+            //// Random position
+            //float x = distX(gen);
+            //float z = distZ(gen);
+            //float y = -15.0f; // Keep trees at ground level
+
+            //// tree->SortByMaterial(); // Multiple textures
+            //std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
+            //tree->SetPosition(x, y, z);
+            //tree->SetScale(30.0f, 30.0f, 30.0f);
+            //tree->ApplyTransformation();
+            //models.push_back(tree);
         }
         else {
             std::cout << "Failed to load tree.obj" << std::endl;
@@ -167,20 +220,6 @@ void Engine::Init() {
     //    std::cout << "Failed to load tree.obj" << std::endl;
     //    delete tree;
     //}
-    
-    // Example: Load cube
-    Model* cube = new Model();
-    if (cube->LoadFromObj("cottage_obj.obj")) {
-        std::cout << "Cube loaded: " << cube->GetNumVertices() << " vertices" << std::endl;
-        cube->SetPosition(-10.0f, 0.0f, 0.0f);
-        cube->SetRotation(0.0f, DirectX::XM_PIDIV2, 0.0f); // DirectX::XM_PIDIV4
-        cube->SetScale(2.0f, 2.0f, 2.0f);
-        cube->ApplyTransformation();
-        models.push_back(cube);
-    } else {
-        std::cout << "Failed to load cube.obj" << std::endl;
-        delete cube;
-    }
     
     std::cout << "Total models loaded: " << models.size() << std::endl;
     
