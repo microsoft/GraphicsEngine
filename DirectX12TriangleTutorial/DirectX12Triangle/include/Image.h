@@ -21,7 +21,8 @@ public:
 	Pixel GetPixel(int x, int y) const;
 	int GetWidth() const { return width; }
 	int GetHeight() const { return height; }
-	unsigned char* data();
+    unsigned char* data() { return raw_data; }
+    const unsigned char* data() const { return raw_data; } 
 
 private:
 	int width, height, channels;

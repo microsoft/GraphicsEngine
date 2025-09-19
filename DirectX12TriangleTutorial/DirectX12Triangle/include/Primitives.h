@@ -1,10 +1,12 @@
 #pragma once
 #include <DirectXMath.h>
 
-struct alignas(256) MVPConstants {
-	DirectX::XMMATRIX mvp;
-	DirectX::XMMATRIX model;
-	DirectX::XMMATRIX normalMatrix;
+struct MVPConstants {
+    DirectX::XMMATRIX mvp;
+    DirectX::XMMATRIX model;
+    DirectX::XMMATRIX normalMatrix;
+    DirectX::XMFLOAT3 viewPos;  // Add this line
+    float padding;               // Add padding to ensure 16-byte alignment
 };
 
 struct MaterialConstants {

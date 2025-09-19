@@ -76,7 +76,3 @@ Pixel Image::GetPixel(int x, int y) const {
 		return {0, 0, 0, 0}; // Return a default color if out of bounds
 	}
 }
-
-unsigned char* Image::data() {
-	return this->raw_data;
-}

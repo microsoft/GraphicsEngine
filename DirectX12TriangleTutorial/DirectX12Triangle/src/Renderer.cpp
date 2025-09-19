@@ -4,11 +4,25 @@
 #include <iostream>  // for debug output
 #include <filesystem>
 #include "File.h"
+#include "directx/d3dx12.h"
 
 Renderer::Renderer(HWND hwnd, int width, int height)
-	: hwnd(hwnd), width(width), height(height) {
-    this->model = nullptr;
+    : hwnd(hwnd), width(width), height(height), 
+      fence_event(nullptr), fence_value(0), frameIndex(0),
+      rtvDescriptorSize(0), constantBuffer(nullptr), materialBuffer(nullptr),
+      mappedCB(nullptr), mappedMat(nullptr) {
+    this->models = std::vector<Model*>();
     this->c = Camera();
+    
+    // Initialize arrays
+    renderTargets[0] = nullptr;
+    renderTargets[1] = nullptr;
+    fenceValues[0] = 0;
+    fenceValues[1] = 0;
+    
+    // Initialize structs
+    cbData = {};
+    matData = {};
 }
 
 Renderer::~Renderer() {}
@@ -22,6 +36,19 @@ void Renderer::Init() {
 	std::cout << "Assets created." << std::endl;
     CreateTextureResources();
 	std::cout << "Textures created." << std::endl;
+    
+    // Initialize viewport and scissor rect
+    viewport.TopLeftX = 0;
+    viewport.TopLeftY = 0;
+    viewport.Width = static_cast<float>(width);
+    viewport.Height = static_cast<float>(height);
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    scissorRect.left = 0;
+    scissorRect.top = 0;
+    scissorRect.right = static_cast<LONG>(width);
+    scissorRect.bottom = static_cast<LONG>(height);
 }
 
 // for transparency (ex)
@@ -396,161 +423,188 @@ void Renderer::CreatePipeline() {
 
 void Renderer::CreateAssets() {
     HRESULT hr;
-    // TODO: upload to GPU
-    if (model == nullptr) {
-		throw std::runtime_error("No model bound to renderer");
+    if (models.empty()) {
+        throw std::runtime_error("No models bound to renderer");
     }
 
-    // allocating space for buffers for model
-    //heap properties
-    D3D12_HEAP_PROPERTIES heap_properties = {};
-    heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;
-    heap_properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-    heap_properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-    heap_properties.CreationNodeMask = 1;
-    heap_properties.VisibleNodeMask = 1;
+    // Resize buffer vectors to match number of models
+    vertex_buffers.resize(models.size());
+    vertex_buffers_upload.resize(models.size());
+    index_buffers.resize(models.size());
+    index_buffers_upload.resize(models.size());
 
-    D3D12_HEAP_PROPERTIES heap_properties_upload = heap_properties;
-    heap_properties_upload.Type = D3D12_HEAP_TYPE_UPLOAD;
+    // Create buffers for each model
+    for (size_t i = 0; i < models.size(); ++i) {
+        if (models[i] == nullptr) continue;
+        
+        Model* currentModel = models[i];
+        
+        // Heap properties
+        D3D12_HEAP_PROPERTIES heap_properties = {};
+        heap_properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+        heap_properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+        heap_properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+        heap_properties.CreationNodeMask = 1;
+        heap_properties.VisibleNodeMask = 1;
 
-    //resource description
-    D3D12_RESOURCE_DESC resource_desc = {};
-    resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    resource_desc.Alignment = 0;
-    resource_desc.Width = sizeof(Vertex) * model->GetNumVertices();
-    resource_desc.Height = 1;
-    resource_desc.DepthOrArraySize = 1;
-    resource_desc.MipLevels = 1;
-    resource_desc.Format = DXGI_FORMAT_UNKNOWN;
-    resource_desc.SampleDesc.Count = 1;
-    resource_desc.SampleDesc.Quality = 0;
-    resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-    resource_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+        D3D12_HEAP_PROPERTIES heap_properties_upload = heap_properties;
+        heap_properties_upload.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-    //vertex
-    hr = device->CreateCommittedResource(
-        &heap_properties,
-        D3D12_HEAP_FLAG_NONE,
-        &resource_desc,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(&vertex_buffer)
-    );
+        // Vertex buffer
+        D3D12_RESOURCE_DESC vertex_desc = {};
+        vertex_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        vertex_desc.Alignment = 0;
+        vertex_desc.Width = sizeof(Vertex) * currentModel->GetNumVertices();
+        vertex_desc.Height = 1;
+        vertex_desc.DepthOrArraySize = 1;
+        vertex_desc.MipLevels = 1;
+        vertex_desc.Format = DXGI_FORMAT_UNKNOWN;
+        vertex_desc.SampleDesc.Count = 1;
+        vertex_desc.SampleDesc.Quality = 0;
+        vertex_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        vertex_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-    hr = device->CreateCommittedResource(
-        &heap_properties_upload,
-        D3D12_HEAP_FLAG_NONE,
-        &resource_desc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&vertex_buffer_upload)
-    );
+        hr = device->CreateCommittedResource(
+            &heap_properties,
+            D3D12_HEAP_FLAG_NONE,
+            &vertex_desc,
+            D3D12_RESOURCE_STATE_COMMON,
+            nullptr,
+            IID_PPV_ARGS(&vertex_buffers[i])
+        );
 
-    //index
+        hr = device->CreateCommittedResource(
+            &heap_properties_upload,
+            D3D12_HEAP_FLAG_NONE,
+            &vertex_desc,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&vertex_buffers_upload[i])
+        );
 
-    resource_desc.Width = sizeof(unsigned int) * model->GetNumIndices();
-    hr = device->CreateCommittedResource(
-        &heap_properties,
-        D3D12_HEAP_FLAG_NONE,
-        &resource_desc,
-        D3D12_RESOURCE_STATE_COMMON,
-        nullptr,
-        IID_PPV_ARGS(&index_buffer)
-    );
+        // Index buffer
+        D3D12_RESOURCE_DESC index_desc = {};
+        index_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        index_desc.Alignment = 0;
+        index_desc.Width = sizeof(unsigned int) * currentModel->GetNumIndices();
+        index_desc.Height = 1;
+        index_desc.DepthOrArraySize = 1;
+        index_desc.MipLevels = 1;
+        index_desc.Format = DXGI_FORMAT_UNKNOWN;
+        index_desc.SampleDesc.Count = 1;
+        index_desc.SampleDesc.Quality = 0;
+        index_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        index_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-    hr = device->CreateCommittedResource(
-        &heap_properties_upload,
-        D3D12_HEAP_FLAG_NONE,
-        &resource_desc,
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&index_buffer_upload)
-    );
+        hr = device->CreateCommittedResource(
+            &heap_properties,
+            D3D12_HEAP_FLAG_NONE,
+            &index_desc,
+            D3D12_RESOURCE_STATE_COMMON,
+            nullptr,
+            IID_PPV_ARGS(&index_buffers[i])
+        );
 
-    //copy data from CPU to the upload buffers
-	const std::vector<Vertex>& model_vertices = model->GetVertices();
-    const std::vector<unsigned int>& model_indices = model->GetIndices();
-    void* vertex_mapped_data = nullptr;
-    vertex_buffer_upload->Map(0, nullptr, &vertex_mapped_data);
-    memcpy(vertex_mapped_data, model_vertices.data(), sizeof(Vertex) * model_vertices.size());
-    vertex_buffer_upload->Unmap(0, nullptr);
+        hr = device->CreateCommittedResource(
+            &heap_properties_upload,
+            D3D12_HEAP_FLAG_NONE,
+            &index_desc,
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&index_buffers_upload[i])
+        );
 
-    void* index_mapped_data = nullptr;
-    index_buffer_upload->Map(0, nullptr, &index_mapped_data);
-    memcpy(index_mapped_data, model_indices.data(), sizeof(unsigned int) * model_indices.size());
-    index_buffer_upload->Unmap(0, nullptr);
+        // Copy data to upload buffers
+        const std::vector<Vertex>& model_vertices = currentModel->GetVertices();
+        const std::vector<unsigned int>& model_indices = currentModel->GetIndices();
+        
+        void* vertex_mapped_data = nullptr;
+        vertex_buffers_upload[i]->Map(0, nullptr, &vertex_mapped_data);
+        memcpy(vertex_mapped_data, model_vertices.data(), sizeof(Vertex) * model_vertices.size());
+        vertex_buffers_upload[i]->Unmap(0, nullptr);
+
+        void* index_mapped_data = nullptr;
+        index_buffers_upload[i]->Map(0, nullptr, &index_mapped_data);
+        memcpy(index_mapped_data, model_indices.data(), sizeof(unsigned int) * model_indices.size());
+        index_buffers_upload[i]->Unmap(0, nullptr);
+    }
     
-    //Record commands to copy the data from the upload buffer to the fast default buffer
+    // Upload all buffers in one command list execution
     commandAllocator->Reset();
     commandList->Reset(commandAllocator, nullptr);
 
-    D3D12_RESOURCE_BARRIER barrier[2] = {};
-    barrier[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier[0].Transition.pResource = vertex_buffer;
-    barrier[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-    barrier[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    for (size_t i = 0; i < models.size(); ++i) {
+        if (models[i] == nullptr) continue;
+        
+        D3D12_RESOURCE_BARRIER barriers[2] = {};
+        barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        barriers[0].Transition.pResource = vertex_buffers[i];
+        barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+        barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+        barriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-    barrier[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    barrier[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-    barrier[1].Transition.pResource = index_buffer;
-    barrier[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
-    barrier[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+        barriers[1].Transition.pResource = index_buffers[i];
+        barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COMMON;
+        barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+        barriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-    commandList->ResourceBarrier(2, barrier);
+        commandList->ResourceBarrier(2, barriers);
+        
+        commandList->CopyResource(vertex_buffers[i], vertex_buffers_upload[i]);
+        commandList->CopyResource(index_buffers[i], index_buffers_upload[i]);
 
-    //copy the data from upload to the fast default buffer
-    commandList->CopyResource(vertex_buffer, vertex_buffer_upload);
-    commandList->CopyResource(index_buffer, index_buffer_upload);
+        barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+        barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_INDEX_BUFFER;
 
-    barrier[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier[0].Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-
-    barrier[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier[1].Transition.StateAfter = D3D12_RESOURCE_STATE_INDEX_BUFFER;
-
-    commandList->ResourceBarrier(2, barrier);
+        commandList->ResourceBarrier(2, barriers);
+    }
 
     commandList->Close();
-
     ID3D12CommandList* command_lists[] = { commandList };
     commandQueue->ExecuteCommandLists(1, command_lists);
 
-    // Wait on the CPU for the GPU frame to finish
+    // Wait for GPU to finish
     const UINT64 current_fence_value = ++fence_value;
     commandQueue->Signal(fence, current_fence_value);
-
     if (fence->GetCompletedValue() < current_fence_value) {
         fence->SetEventOnCompletion(current_fence_value, fence_event);
         WaitForSingleObject(fence_event, INFINITE);
     }
 
-    // Build draw ranges grouped by material (triangle = 3 indices)
-    drawRanges.clear();
-    const auto& materialsRef = model->GetMaterials();
-    const auto& indices = model->GetIndices();
-    const auto& faceMaterialIndices = model->GetFaceMaterialIndices();
-    size_t totalIndices = model->GetNumIndices();
-    
-    if (!faceMaterialIndices.empty() && totalIndices % 3 == 0 && !materialsRef.empty()) {
-        // Build ranges based on consecutive triangles with same material
-        DrawRange current {0, 0, faceMaterialIndices[0]};
+    // Build draw ranges for first model only (if using materials)
+    // You may want to extend this for per-model materials later
+    if (!models.empty() && models[0] != nullptr) {
+        drawRanges.clear();
+        const auto& materialsRef = models[0]->GetMaterials();
+        const auto& faceMaterialIndices = models[0]->GetFaceMaterialIndices();
+        size_t totalIndices = models[0]->GetNumIndices();
         
-        for (UINT tri = 0; tri < totalIndices/3; ++tri) {
-            UINT base = tri * 3;
-            UINT faceMaterial = (tri < faceMaterialIndices.size()) ? faceMaterialIndices[tri] : 0;
+        if (!faceMaterialIndices.empty() && totalIndices % 3 == 0 && !materialsRef.empty()) {
+            DrawRange current {0, 0, faceMaterialIndices[0]};
             
-            if (faceMaterial != current.materialIndex) {
-                if (current.indexCount > 0) {
-                    drawRanges.push_back(current);
+            for (UINT tri = 0; tri < totalIndices/3; ++tri) {
+                UINT base = tri * 3;
+                UINT faceMaterial = (tri < faceMaterialIndices.size()) ? faceMaterialIndices[tri] : 0;
+                
+                if (faceMaterial != current.materialIndex) {
+                    if (current.indexCount > 0) {
+                        drawRanges.push_back(current);
+                    }
+                    current.startIndex = base;
+                    current.indexCount = 0;
+                    current.materialIndex = faceMaterial;
                 }
-                current.startIndex = base;
-                current.indexCount = 0;
-                current.materialIndex = faceMaterial;
+                current.indexCount += 3;
             }
-            current.indexCount += 3;
+            if (current.indexCount > 0) drawRanges.push_back(current);
+        } else {
+            DrawRange dr {0, static_cast<UINT>(totalIndices), 0};
+            drawRanges.push_back(dr);
         }
         if (current.indexCount > 0) drawRanges.push_back(current);
     } else {
@@ -589,203 +643,189 @@ void Renderer::HandleMouseMove(float deltaX, float deltaY)
 void Renderer::Update() {
     //triangle_angle++;
     UpdateTextures();
+    // Update happens per frame, not per model
+}
 
-    DirectX::XMMATRIX model = DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(static_cast<float>(0)));
-
+void Renderer::Render() {
+    UINT frameIndex = swapChain->GetCurrentBackBufferIndex();
+    
+    // Reset command allocator and list
+    commandAllocator->Reset();
+    commandList->Reset(commandAllocator, pipelineState);
+    
+    // Set necessary state
+    commandList->SetGraphicsRootSignature(rootSignature);
+    commandList->RSSetViewports(1, &viewport);
+    commandList->RSSetScissorRects(1, &scissorRect);
+    
+    // Set descriptor heaps
+    ID3D12DescriptorHeap* ppHeaps[] = { srvHeap };
+    commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+    
+    // Transition render target
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = renderTargets[frameIndex];
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    commandList->ResourceBarrier(1, &barrier);
+    
+    // Set render target
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    rtvHandle.ptr += frameIndex * rtvDescriptorSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsv_heap->GetCPUDescriptorHandleForHeapStart();
+    commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+    
+    // Clear
+    float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+    commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+    
+    // Set common pipeline state
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    
+    // Calculate view and projection matrices (once for all models)
     DirectX::XMVECTOR camPos = DirectX::XMLoadFloat3(&c.cameraPos);
     DirectX::XMVECTOR camForward = DirectX::XMLoadFloat3(&c.cameraForward);
     DirectX::XMVECTOR camTarget = DirectX::XMVectorAdd(camPos, camForward);
     DirectX::XMVECTOR camUp = DirectX::XMLoadFloat3(&c.cameraUp);
-
-    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(
-        camPos,      // eye
-        camTarget,   // look
-        camUp        
-    );
-
+    
+    DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(camPos, camTarget, camUp);
     DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
         DirectX::XMConvertToRadians(45.0f),
         static_cast<float>(width) / static_cast<float>(height),
-        0.1f,
-        100.0f
+        0.1f, 1000.0f
     );
-
-    cbData.mvp = DirectX::XMMatrixTranspose(model * view * proj);
-    cbData.model = DirectX::XMMatrixTranspose(model);
     
-    // Calculate normal matrix (transpose of inverse model)
-    DirectX::XMVECTOR det;
-    DirectX::XMMATRIX invModel = DirectX::XMMatrixInverse(&det, model);
-    cbData.normalMatrix = invModel; // Don't transpose since we're already transposing in shader
-    
-    *mappedCB = cbData;
-
-    // Update material if model has materials
-    if (!this->model->GetMaterials().empty()) {
-        const Material& mat = this->model->GetMaterials()[0];
-        matData.ambient = DirectX::XMFLOAT4(mat.ambient.x, mat.ambient.y, mat.ambient.z, 1.0f);
-        matData.diffuse = DirectX::XMFLOAT4(mat.diffuse.x, mat.diffuse.y, mat.diffuse.z, 1.0f);
-        matData.specular = DirectX::XMFLOAT4(mat.specular.x, mat.specular.y, mat.specular.z, 1.0f);
-        matData.shininess = mat.shininess;
+    // Render each model
+    for (size_t i = 0; i < models.size(); ++i) {
+        if (models[i] == nullptr) continue;
         
-        // Debug output
-        //std::cout << "Material loaded - Diffuse: " 
-        //          << mat.diffuse.x << ", " << mat.diffuse.y << ", " << mat.diffuse.z << std::endl;
-    } else {
-        // Default materials if none loaded
-        matData.ambient = DirectX::XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
-        matData.diffuse = DirectX::XMFLOAT4(0.8f, 0.0f, 0.0f, 1.0f); // Red for debugging
-        matData.specular = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-        matData.shininess = 32.0f;
+        // Get model's transformation matrix
+        DirectX::XMMATRIX model = models[i]->GetModelMatrix();
+
+        // Debug: Print transformation matrix to verify it's not identity
+        DirectX::XMFLOAT4X4 modelFloat;
+        DirectX::XMStoreFloat4x4(&modelFloat, model);
+        OutputDebugStringA(("Model " + std::to_string(i) + " matrix:\n").c_str());
+        for (int row = 0; row < 4; row++) {
+            std::string rowStr = "";
+            for (int col = 0; col < 4; col++) {
+                rowStr += std::to_string(modelFloat.m[row][col]) + " ";
+            }
+            OutputDebugStringA((rowStr + "\n").c_str());
+        }
         
-        //std::cout << "Using default red material" << std::endl;
-    }
-    *mappedMat = matData;
-}
-
-void Renderer::Render() {
-    // TODO: record command list, clear RT, draw cube
-    // Record commands to draw a triangle
-    commandAllocator->Reset();
-    commandList->Reset(commandAllocator, nullptr);
-
-    UINT back_buffer_index = swapChain->GetCurrentBackBufferIndex();
-
-    {
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barrier.Transition.pResource = renderTargets[back_buffer_index];
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        commandList->ResourceBarrier(1, &barrier);
-    }
-
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
-    rtv_handle.ptr += back_buffer_index * rtvDescriptorSize;
-
-    // Clear the render target
-    float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-    commandList->ClearRenderTargetView(rtv_handle, clearColor, 0, nullptr);
-
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = dsv_heap->GetCPUDescriptorHandleForHeapStart();
-    commandList->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-    // Set viewport and scissor
-    D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f };
-    D3D12_RECT scissor_rect = { 0, 0, width, height };
-    commandList->RSSetViewports(1, &viewport);
-    commandList->RSSetScissorRects(1, &scissor_rect);
-
-    commandList->OMSetRenderTargets(1, &rtv_handle, FALSE, &dsv_handle);
-    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    commandList->SetGraphicsRootSignature(rootSignature);
-    commandList->SetPipelineState(pipelineState);
-
-    // Draw the triangle
-    //command_list->SetGraphicsRoot32BitConstant(0, triangle_angle, 0);
-
-    D3D12_VERTEX_BUFFER_VIEW vertex_buffer_view = {};
-    vertex_buffer_view.BufferLocation = vertex_buffer->GetGPUVirtualAddress();
-    vertex_buffer_view.StrideInBytes = sizeof(Vertex);
-    vertex_buffer_view.SizeInBytes = sizeof(Vertex) * model->GetNumVertices();
-    commandList->IASetVertexBuffers(0, 1, &vertex_buffer_view);
-
-    D3D12_INDEX_BUFFER_VIEW index_buffer_view = {};
-    index_buffer_view.BufferLocation = index_buffer->GetGPUVirtualAddress();
-    index_buffer_view.SizeInBytes = sizeof(unsigned int) * model->GetNumIndices();
-    index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
-    commandList->IASetIndexBuffer(&index_buffer_view);
-
-    // Set descriptor heaps - only if we have textures
-    if (srvHeap.Get() != nullptr) {
-        ID3D12DescriptorHeap* ppHeaps[] = { srvHeap.Get() };
-        commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
-    }
-    
-    // Bind CBVs
-    D3D12_GPU_VIRTUAL_ADDRESS cbAddress = constantBuffer->GetGPUVirtualAddress();
-    commandList->SetGraphicsRootConstantBufferView(0, cbAddress);
-    
-    D3D12_GPU_VIRTUAL_ADDRESS matAddress = materialBuffer->GetGPUVirtualAddress();
-    commandList->SetGraphicsRootConstantBufferView(1, matAddress);
-    
-    // Multi-material draws
-    if (drawRanges.empty()) {
-        if (srvHeap.Get() != nullptr) {
-            commandList->SetGraphicsRootDescriptorTable(2, srvHeap->GetGPUDescriptorHandleForHeapStart());
+        // Update constant buffer for this model
+        cbData.mvp = DirectX::XMMatrixTranspose(model * view * proj);
+        cbData.model = DirectX::XMMatrixTranspose(model);
+        cbData.viewPos = c.cameraPos;
+        
+        DirectX::XMVECTOR det;
+        DirectX::XMMATRIX invModel = DirectX::XMMatrixInverse(&det, model);
+        cbData.normalMatrix = DirectX::XMMatrixTranspose(invModel);
+        
+        *mappedCB = cbData;
+        
+        // Set vertex and index buffers for this model
+        D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
+        vertexBufferView.BufferLocation = vertex_buffers[i]->GetGPUVirtualAddress();
+        vertexBufferView.StrideInBytes = sizeof(Vertex);
+        vertexBufferView.SizeInBytes = sizeof(Vertex) * models[i]->GetNumVertices();
+        
+        D3D12_INDEX_BUFFER_VIEW indexBufferView = {};
+        indexBufferView.BufferLocation = index_buffers[i]->GetGPUVirtualAddress();
+        indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+        indexBufferView.SizeInBytes = sizeof(unsigned int) * models[i]->GetNumIndices();
+        
+        commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+        commandList->IASetIndexBuffer(&indexBufferView);
+        
+        // Set constant buffers
+        commandList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
+        commandList->SetGraphicsRootConstantBufferView(1, materialBuffer->GetGPUVirtualAddress());
+        
+        // Set texture for this model
+        if (i < modelMaterialRanges.size()) {
+            UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            D3D12_GPU_DESCRIPTOR_HANDLE textureHandle = srvHeap->GetGPUDescriptorHandleForHeapStart();
+            textureHandle.ptr += modelMaterialRanges[i].startIndex * descriptorSize;
+            commandList->SetGraphicsRootDescriptorTable(2, textureHandle);
         }
-        commandList->DrawIndexedInstanced(model->GetNumIndices(), 1, 0, 0, 0);
-    } else {
-        // Iterate each range; assume one SRV per material laid out sequentially in heap
-        UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        for (const auto& dr : drawRanges) {
-            if (srvHeap.Get() != nullptr) {
-                D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = srvHeap->GetGPUDescriptorHandleForHeapStart();
-                gpuHandle.ptr += dr.materialIndex * descriptorSize;
-                commandList->SetGraphicsRootDescriptorTable(2, gpuHandle);
-            }
-            // Update material constants if available
-            if (model && dr.materialIndex < model->GetMaterials().size()) {
-                const Material& m = model->GetMaterials()[dr.materialIndex];
-                matData.ambient = DirectX::XMFLOAT4(m.ambient.x, m.ambient.y, m.ambient.z, 1.0f);
-                matData.diffuse = DirectX::XMFLOAT4(m.diffuse.x, m.diffuse.y, m.diffuse.z, 1.0f);
-                matData.specular = DirectX::XMFLOAT4(m.specular.x, m.specular.y, m.specular.z, 1.0f);
-                matData.shininess = m.shininess;
-                *mappedMat = matData;
-            }
-            commandList->DrawIndexedInstanced(dr.indexCount, 1, dr.startIndex, 0, 0);
-        }
+        
+        // Draw
+        commandList->DrawIndexedInstanced(models[i]->GetNumIndices(), 1, 0, 0, 0);
     }
-
-    {
-        D3D12_RESOURCE_BARRIER barrier = {};
-        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-        barrier.Transition.pResource = renderTargets[back_buffer_index];
-        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-        commandList->ResourceBarrier(1, &barrier);
-    }
-
+    
+    // Transition back to present
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+    commandList->ResourceBarrier(1, &barrier);
+    
+    // Execute
     commandList->Close();
-
     ID3D12CommandList* commandLists[] = { commandList };
     commandQueue->ExecuteCommandLists(1, commandLists);
-
+    
     swapChain->Present(1, 0);
-
-    // Wait on the CPU for the GPU frame to finish
-    const UINT64 current_fence_value = ++fence_value;
-    commandQueue->Signal(fence, current_fence_value);
-
-    if (fence->GetCompletedValue() < current_fence_value) {
-        fence->SetEventOnCompletion(current_fence_value, fence_event);
+    
+    // Wait for frame to complete
+    const UINT64 fenceValue = fenceValues[frameIndex];
+    commandQueue->Signal(fence, fenceValue);
+    fenceValues[frameIndex]++;
+    
+    if (fence->GetCompletedValue() < fenceValue) {
+        fence->SetEventOnCompletion(fenceValue, fence_event);
         WaitForSingleObject(fence_event, INFINITE);
     }
 }
-
-void Renderer::BindModel(Model &model) {
-    this->model = &model;
+void Renderer::BindModels(const std::vector<Model*>& modelList) {
+    this->models = modelList;
 }
 
 void Renderer::CreateTextureResources() {
-    // Prepare multi-material descriptor heap
-    UINT materialCount = (model) ? static_cast<UINT>(model->GetMaterials().size()) : 0;
-    if (materialCount == 0) materialCount = 1; // at least one default
+    // Count total materials across all models
+    UINT totalMaterialCount = 0;
+    for (const auto& model : models) {
+        if (model) {
+            totalMaterialCount += static_cast<UINT>(model->GetMaterials().size());
+            if (model->GetMaterials().empty()) {
+                totalMaterialCount++; // Add one for default texture
+            }
+        }
+    }
     
+    // Ensure at least one descriptor for default texture
+    if (totalMaterialCount == 0) totalMaterialCount = 1;
+    
+    // Track material ranges for each model
+    modelMaterialRanges.clear();
+    UINT currentStartIndex = 0;
+    for (const auto& model : models) {
+        ModelMaterialRange range;
+        range.startIndex = currentStartIndex;
+        if (model) {
+            range.count = static_cast<UINT>(model->GetMaterials().size());
+            if (range.count == 0) range.count = 1; // At least one default
+        } else {
+            range.count = 1;
+        }
+        modelMaterialRanges.push_back(range);
+        currentStartIndex += range.count;
+    }
+    
+    // Create descriptor heap for all textures
     D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-    srvHeapDesc.NumDescriptors = materialCount;
+    srvHeapDesc.NumDescriptors = totalMaterialCount;
     srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&srvHeap));
 
-    materialTextures.resize(materialCount);
-    materialUploadHeaps.resize(materialCount);
+    materialTextures.resize(totalMaterialCount);
+    materialUploadHeaps.resize(totalMaterialCount);
     
-    // Create 1x1 white texture
+    // Create default white texture
     UINT32 whitePixel = 0xFFFFFFFF;
     D3D12_RESOURCE_DESC textureDesc = {};
     textureDesc.MipLevels = 1;
@@ -866,136 +906,156 @@ void Renderer::CreateTextureResources() {
         WaitForSingleObject(fence_event, INFINITE);
     }
 
-    // Now create SRV for each material slot
+    // Now create SRVs for each material
     UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     D3D12_CPU_DESCRIPTOR_HANDLE currentHandle = srvHeap->GetCPUDescriptorHandleForHeapStart();
     
-    if (model && !model->GetMaterials().empty()) {
-        for (UINT m = 0; m < materialCount; ++m) {
-            const Material& mat = model->GetMaterials()[m];
-            const unsigned char* imgData = const_cast<Image&>(mat.textureImage).data();
-            
-            if (!mat.diffuseMap.empty() && imgData != nullptr) {
-                // Create actual texture for this material
-                UINT width = static_cast<UINT>(mat.textureImage.GetWidth());
-                UINT height = static_cast<UINT>(mat.textureImage.GetHeight());
+    UINT globalMaterialIndex = 0;
 
-                D3D12_RESOURCE_DESC texDesc = {};
-                texDesc.MipLevels = 1;
-                texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                texDesc.Width = width;
-                texDesc.Height = height;
-                texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-                texDesc.DepthOrArraySize = 1;
-                texDesc.SampleDesc.Count = 1;
-                texDesc.SampleDesc.Quality = 0;
-                texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-                D3D12_HEAP_PROPERTIES props = {};
-                props.Type = D3D12_HEAP_TYPE_DEFAULT;
-                device->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &texDesc, 
-                    D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&materialTextures[m]));
-
-                // Create upload heap
-                UINT64 uploadPitch = (width * 4 + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
-                UINT64 uploadSize = height * uploadPitch;
-                props.Type = D3D12_HEAP_TYPE_UPLOAD;
-                
-                D3D12_RESOURCE_DESC uploadDesc = {};
-                uploadDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-                uploadDesc.Width = uploadSize;
-                uploadDesc.Height = 1;
-                uploadDesc.DepthOrArraySize = 1;
-                uploadDesc.MipLevels = 1;
-                uploadDesc.Format = DXGI_FORMAT_UNKNOWN;
-                uploadDesc.SampleDesc.Count = 1;
-                uploadDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-                uploadDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-                
-                device->CreateCommittedResource(&props, D3D12_HEAP_FLAG_NONE, &uploadDesc, 
-                    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&materialUploadHeaps[m]));
-                
-                // Copy texture data
-                void* mapped = nullptr;
-                D3D12_RANGE range = {0,0};
-                materialUploadHeaps[m]->Map(0, &range, &mapped);
-                unsigned char* destData = static_cast<unsigned char*>(mapped);
-                for (UINT y = 0; y < height; ++y) {
-                    memcpy(destData + y * uploadPitch, imgData + y * width * 4, width * 4);
-                }
-                materialUploadHeaps[m]->Unmap(0, nullptr);
-
-                // Upload texture
-                commandAllocator->Reset();
-                commandList->Reset(commandAllocator, nullptr);
-                
-                D3D12_TEXTURE_COPY_LOCATION src = {};
-                src.pResource = materialUploadHeaps[m].Get();
-                src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-                src.PlacedFootprint.Offset = 0;
-                src.PlacedFootprint.Footprint.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                src.PlacedFootprint.Footprint.Width = width;
-                src.PlacedFootprint.Footprint.Height = height;
-                src.PlacedFootprint.Footprint.Depth = 1;
-                src.PlacedFootprint.Footprint.RowPitch = static_cast<UINT>(uploadPitch);
-                
-                D3D12_TEXTURE_COPY_LOCATION dst = {};
-                dst.pResource = materialTextures[m].Get();
-                dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-                dst.SubresourceIndex = 0;
-                
-                commandList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
-                
-                D3D12_RESOURCE_BARRIER bar = {};
-                bar.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                bar.Transition.pResource = materialTextures[m].Get();
-                bar.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-                bar.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-                bar.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                commandList->ResourceBarrier(1, &bar);
-                
-                commandList->Close();
-                ID3D12CommandList* lists[] = { commandList };
-                commandQueue->ExecuteCommandLists(1, lists);
-                
-                const UINT64 fval = ++fence_value;
-                commandQueue->Signal(fence, fval);
-                if (fence->GetCompletedValue() < fval) {
-                    fence->SetEventOnCompletion(fval, fence_event);
-                    WaitForSingleObject(fence_event, INFINITE);
-                }
-
-                // Create SRV for this texture
-                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                srvDesc.Texture2D.MipLevels = 1;
-                device->CreateShaderResourceView(materialTextures[m].Get(), &srvDesc, currentHandle);
-                
-                // std::cout << "Loaded texture (material " << m << "): " << width << "x" << height << " from " << mat.diffuseMap << std::endl;
-            } else {
-                // Create SRV pointing to default white texture
-                D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-                srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-                srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-                srvDesc.Texture2D.MipLevels = 1;
-                device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
-                
-                // std::cout << "Using default white texture for material " << m << std::endl;
-            }
-            
-            // Always advance the handle to maintain alignment
+    // Reset command list for texture uploads
+    commandAllocator->Reset();
+    commandList->Reset(commandAllocator, nullptr);
+    
+    for (size_t modelIdx = 0; modelIdx < models.size(); ++modelIdx) {
+        if (!models[modelIdx]) {
+            // Null model - just use default texture
+            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MipLevels = 1;
+            device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
             currentHandle.ptr += descriptorSize;
+            globalMaterialIndex++;
+            continue;
         }
-    } else {
-        // Create default texture SRV if no model/materials
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Texture2D.MipLevels = 1;
-        device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
+        
+        const auto& materials = models[modelIdx]->GetMaterials();
+        
+        if (materials.empty()) {
+            // Model has no materials - create one default SRV
+            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MipLevels = 1;
+            device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
+            currentHandle.ptr += descriptorSize;
+            globalMaterialIndex++;
+        } else {
+            // Process each material for this model
+            for (size_t matIdx = 0; matIdx < materials.size(); ++matIdx) {
+                const Material& mat = materials[matIdx];
+                
+                // Check if material has a diffuse texture
+                if (!mat.diffuseMap.empty() && mat.textureImage.GetWidth() > 0) {
+                    // Load actual texture from material
+                    int texWidth = mat.textureImage.GetWidth();
+                    int texHeight = mat.textureImage.GetHeight();
+                    const unsigned char* imageData = mat.textureImage.data();
+                    
+                    if (imageData) {
+                        // Create texture resource
+                        D3D12_RESOURCE_DESC textureDesc = {};
+                        textureDesc.MipLevels = 1;
+                        textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                        textureDesc.Width = texWidth;
+                        textureDesc.Height = texHeight;
+                        textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+                        textureDesc.DepthOrArraySize = 1;
+                        textureDesc.SampleDesc.Count = 1;
+                        textureDesc.SampleDesc.Quality = 0;
+                        textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+                        
+                        D3D12_HEAP_PROPERTIES heapProps = {};
+                        heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+                        
+                        ComPtr<ID3D12Resource> texture;
+                        device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &textureDesc,
+                            D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&texture));
+                        
+                        // Create upload buffer
+                        UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture.Get(), 0, 1);
+                        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+                        
+                        D3D12_RESOURCE_DESC bufferDesc = {};
+                        bufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+                        bufferDesc.Width = uploadBufferSize;
+                        bufferDesc.Height = 1;
+                        bufferDesc.DepthOrArraySize = 1;
+                        bufferDesc.MipLevels = 1;
+                        bufferDesc.Format = DXGI_FORMAT_UNKNOWN;
+                        bufferDesc.SampleDesc.Count = 1;
+                        bufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+                        bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+                        
+                        ComPtr<ID3D12Resource> uploadBuffer;
+                        device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &bufferDesc,
+                            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+                        
+                        // Copy image data to upload buffer
+                        D3D12_SUBRESOURCE_DATA subresourceData = {};
+                        subresourceData.pData = imageData;
+                        subresourceData.RowPitch = texWidth * 4; // 4 bytes per pixel (RGBA)
+                        subresourceData.SlicePitch = subresourceData.RowPitch * texHeight;
+                        
+                        UpdateSubresources(commandList, texture.Get(), uploadBuffer.Get(), 0, 0, 1, &subresourceData);
+                        
+                        // Transition to shader resource
+                        D3D12_RESOURCE_BARRIER barrier = {};
+                        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                        barrier.Transition.pResource = texture.Get();
+                        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+                        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+                        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                        commandList->ResourceBarrier(1, &barrier);
+                        
+                        // Store the texture
+                        materialTextures[globalMaterialIndex] = texture;
+                        materialUploadHeaps[globalMaterialIndex] = uploadBuffer;
+                        
+                        // Create SRV for this texture
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                        srvDesc.Texture2D.MipLevels = 1;
+                        device->CreateShaderResourceView(texture.Get(), &srvDesc, currentHandle);
+                    } else {
+                        // Use default white texture
+                        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                        srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                        srvDesc.Texture2D.MipLevels = 1;
+                        device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
+                    }
+                } else {
+                    // Use default white texture
+                    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                    srvDesc.Texture2D.MipLevels = 1;
+                    device->CreateShaderResourceView(defaultTexture.Get(), &srvDesc, currentHandle);
+                }
+                
+                currentHandle.ptr += descriptorSize;
+                globalMaterialIndex++;
+            }
+        }
     }
+    // Execute all texture uploads at once
+    commandList->Close();
+    ID3D12CommandList* ppTextureCommandLists[] = { commandList };  // Use different name
+    commandQueue->ExecuteCommandLists(1, ppTextureCommandLists);
+    
+    // Wait for uploads to complete
+    const UINT64 fence_value_for_textures = ++fence_value;
+    commandQueue->Signal(fence, fence_value_for_textures);
+    if (fence->GetCompletedValue() < fence_value_for_textures) {
+        fence->SetEventOnCompletion(fence_value_for_textures, fence_event);
+        WaitForSingleObject(fence_event, INFINITE);
+    }
+
 }

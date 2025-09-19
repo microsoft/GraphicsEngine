@@ -3,6 +3,17 @@
 
 Camera::Camera()
 {
+    // Set initial camera position
+    cameraPos = { 20.0f, 10.0f, -60.0f };
+    cameraForward = { 0.0f, 0.0f, 1.0f };
+    cameraUp = { 0.0f, 1.0f, 0.0f };
+    cameraRight = { 1.0f, 0.0f, 0.0f };
+    
+    yaw = 0.0f;
+    pitch = 0.0f;
+    mouseSensitivity = 0.005f;
+    
+    UpdateCameraVectors();
 }
 
 Camera::~Camera()

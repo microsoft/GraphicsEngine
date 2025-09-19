@@ -99,21 +99,76 @@ void Engine::InitWindow() {
 
     RegisterClass(&wc);
 
-    hwnd = CreateWindow(wc.lpszClassName, L"DirectX Engine", WS_OVERLAPPEDWINDOW,
+    hwnd = CreateWindow(wc.lpszClassName, L"SlenderMan", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, hInstance, nullptr);
-    
+
     ShowWindow(hwnd, SW_SHOW);
 }
 
 void Engine::Init() {
     InitWindow();
-	std::cout << "Loading model..." << std::endl;
-    models.resize(1);
-    models[0].LoadFromObj("cottage_obj.obj");
-	std::cout << "Creating renderer..." << std::endl;
+  
+    // Load multiple models
+    models.clear();
+    
+    // Example: Load grassplane
+    Model* grassplane = new Model();
+    if (grassplane->LoadFromObj("grassplane.obj")) {
+        std::cout << "Grassplane loaded: " << grassplane->GetNumVertices() << " vertices" << std::endl;
+        grassplane->SetPosition(0.0f, 0.0f, 0.0f);
+        models.push_back(grassplane);
+    } else {
+        std::cout << "Failed to load grassplane.obj" << std::endl;
+        delete grassplane;
+    }
+    
+    // Example: Load tree
+    Model* tree = new Model();
+    if (tree->LoadFromObj("Mineways2Skfb.obj")) {
+        // tree->SortByMaterial(); // Multiple textures
+        std::cout << "Tree loaded: " << tree->GetNumVertices() << " vertices" << std::endl;
+        tree->SetPosition(50.0f, -15.0f, 0.0f);  
+        tree->SetScale(30.0f, 30.0f, 30.0f);
+        tree->ApplyTransformation();
+        models.push_back(tree);
+    } else {
+        std::cout << "Failed to load tree.obj" << std::endl;
+        delete tree;
+    }
+
+    // Example: Load tree
+    Model* tree2 = new Model();
+    if (tree2->LoadFromObj("Mineways2Skfb.obj")) {
+        // tree->SortByMaterial(); // Multiple textures
+        std::cout << "Tree loaded: " << tree2->GetNumVertices() << " vertices" << std::endl;
+        tree2->SetPosition(40.0f, -15.0f, 50.0f);  
+        tree2->SetScale(30.0f, 30.0f, 30.0f);
+        tree2->ApplyTransformation();
+        models.push_back(tree2);
+    } else {
+        std::cout << "Failed to load tree.obj" << std::endl;
+        delete tree;
+    }
+    
+    // Example: Load cube
+    Model* cube = new Model();
+    if (cube->LoadFromObj("cottage_obj.obj")) {
+        std::cout << "Cube loaded: " << cube->GetNumVertices() << " vertices" << std::endl;
+        cube->SetPosition(-10.0f, 0.0f, 0.0f);
+        cube->SetRotation(0.0f, DirectX::XM_PIDIV2, 0.0f); // DirectX::XM_PIDIV4
+        cube->SetScale(2.0f, 2.0f, 2.0f);
+        cube->ApplyTransformation();
+        models.push_back(cube);
+    } else {
+        std::cout << "Failed to load cube.obj" << std::endl;
+        delete cube;
+    }
+    
+    std::cout << "Total models loaded: " << models.size() << std::endl;
+    
+    // Create renderer and bind all models
     renderer = new Renderer(hwnd, width, height);
-    renderer->BindModel(models[0]);
-	std::cout << "Initializing renderer..." << std::endl;
+    renderer->BindModels(models);
     renderer->Init();
 	std::cout << "Initialization complete." << std::endl;
 }
@@ -137,4 +192,10 @@ void Engine::Cleanup() {
         delete renderer;
         renderer = nullptr;
     }
+    
+    // Clean up dynamically allocated models
+    for (auto& model : models) {
+        delete model;
+    }
+    models.clear();
 }
