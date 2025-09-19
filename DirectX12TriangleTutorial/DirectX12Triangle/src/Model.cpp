@@ -14,6 +14,15 @@
 #undef min
 #endif
 
+void Model::UpdateTextures() {
+	for (auto& mat : materials) {
+		if (!mat.diffuseMap.empty()) {
+			mat.textureImage.LoadFromImage(mat.diffuseMap);
+			mat.initialized = true;
+		}
+	}
+}
+
 bool Model::LoadFromObj(const std::string& filename) {
 	// Open the file
 	std::ifstream file = OpenAssetFile(filename);

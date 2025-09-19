@@ -16,7 +16,7 @@ inline std::string GetExecutablePath() {
 inline std::vector<std::string> EnumerateAssetFiles() {
 	std::vector<std::string> assetFiles;
 	std::filesystem::path exePath = GetExecutablePath();
-	std::filesystem::path assetsDir = exePath.parent_path().parent_path() / "DirectX12Triangle" / "assets";
+	std::filesystem::path assetsDir = exePath / "assets";
 	std::vector<std::string> assetDirectories;
 	
 	assetFiles.clear();
