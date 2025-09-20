@@ -199,6 +199,7 @@ void Engine::Init() {
                 // Set position and scale, then apply transformation to compute bounding box
                 diamond->SetPosition(x, y, z);
                 diamond->SetScale(30.0f, 30.0f, 30.0f);
+				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
                 diamond->ApplyTransformation();
 
                 // Check if this diamond intersects with any already placed model
