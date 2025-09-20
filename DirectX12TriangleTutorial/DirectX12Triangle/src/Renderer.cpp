@@ -44,9 +44,6 @@ void Renderer::Init() {
     scissorRect.top = 0;
     scissorRect.right = static_cast<LONG>(width);
     scissorRect.bottom = static_cast<LONG>(height);
-
-    c.models = &models;
-    //c.SetModels(&models);
 }
 
 void Renderer::UpdateTextures() {
@@ -266,7 +263,7 @@ void Renderer::CreateRootSignature()
     rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     rootParameters[0].Descriptor.ShaderRegister = 0;
     rootParameters[0].Descriptor.RegisterSpace = 0;
-    rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+    rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
     
     // Material constant buffer
     rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -363,7 +360,22 @@ void Renderer::CreateConstBuffer()
     matData.diffuse = DirectX::XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
     matData.specular = DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
     matData.shininess = 32.0f;
+    
+    // Fog settings for horror atmosphere
+    matData.fogStart = 10.0f;     // Fog starts close
+    matData.fogEnd = 80.0f;       // Your requested distance
+    matData.fogDensity = 0.08f;   // Thick fog for horror
+    matData._padFog = 0.0f;
+    
+    // Flashlight defaults (will be updated each frame)
+    matData.flashlightPos = DirectX::XMFLOAT3(0.0f, 0.0f, 0.0f);
+    matData.flashlightRange = 50.0f;  // Flashlight reaches 50 units
+    matData.flashlightDir = DirectX::XMFLOAT3(0.0f, 0.0f, 1.0f);
+    matData.flashlightAngle = DirectX::XMConvertToRadians(30.0f); // 30 degree cone
+    matData.flashlightIntensity = 2.5f; // Bright flashlight
+    
     *mappedMat = matData;
+
 }
 
 void Renderer::CreatePipeline() {
@@ -654,7 +666,7 @@ void Renderer::Render() {
     ID3D12DescriptorHeap* ppHeaps[] = { srvHeap };
     commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
     
-    // Transition render target
+    // Transition render target from present to render target state
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = renderTargets[frameIndex];
@@ -666,22 +678,23 @@ void Renderer::Render() {
     // Set render target
     D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
     rtvHandle.ptr += frameIndex * rtvDescriptorSize;
+    
     D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dsv_heap->GetCPUDescriptorHandleForHeapStart();
     commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
     
-    // Clear
-    float clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    // Clear the render target
+    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
     
-    // Set common pipeline state
+    // Set topology
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     
-    // Calculate view and projection matrices (once for all models)
+    // Calculate view and projection matrices
     DirectX::XMVECTOR camPos = DirectX::XMLoadFloat3(&c.cameraPos);
     DirectX::XMVECTOR camForward = DirectX::XMLoadFloat3(&c.cameraForward);
-    DirectX::XMVECTOR camTarget = DirectX::XMVectorAdd(camPos, camForward);
     DirectX::XMVECTOR camUp = DirectX::XMLoadFloat3(&c.cameraUp);
+    DirectX::XMVECTOR camTarget = DirectX::XMVectorAdd(camPos, camForward);
     
     DirectX::XMMATRIX view = DirectX::XMMatrixLookAtLH(camPos, camTarget, camUp);
     DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveFovLH(
@@ -690,94 +703,102 @@ void Renderer::Render() {
         0.1f, 1000.0f
     );
     
+    // Update flashlight to follow camera
+    matData.flashlightPos = c.cameraPos;
+    matData.flashlightDir = c.cameraForward;
+    
+    // Optional: Add slight flashlight bobbing for realism
+    static float time = 0.0f;
+    time += 0.016f; // ~60 FPS
+    matData.flashlightPos.y += sin(time * 3.0f) * 0.02f; // Subtle bob
+    
+    // Optional: Flickering flashlight for horror effect
+    float flicker = 1.0f + sin(time * 30.0f) * 0.05f + sin(time * 73.0f) * 0.03f;
+    matData.flashlightIntensity = 2.5f * flicker;
+    
+    *mappedMat = matData;
+    
     // Render each model
     for (size_t i = 0; i < models.size(); ++i) {
         if (models[i] == nullptr) continue;
         
-        // Get model's transformation matrix
-        DirectX::XMMATRIX model = models[i]->GetModelMatrix();
-
-        // Debug: Print transformation matrix to verify it's not identity
-        //DirectX::XMFLOAT4X4 modelFloat;
-        //DirectX::XMStoreFloat4x4(&modelFloat, model);
-        //OutputDebugStringA(("Model " + std::to_string(i) + " matrix:\n").c_str());
-        //for (int row = 0; row < 4; row++) {
-        //    std::string rowStr = "";
-        //    for (int col = 0; col < 4; col++) {
-        //        rowStr += std::to_string(modelFloat.m[row][col]) + " ";
-        //    }
-        //    OutputDebugStringA((rowStr + "\n").c_str());
-        //}
+        // Get model transformation
+        DirectX::XMMATRIX modelMatrix = models[i]->GetModelMatrix();
         
-        // Update constant buffer for this model
-        cbData.mvp = DirectX::XMMatrixTranspose(model * view * proj);
-        cbData.model = DirectX::XMMatrixTranspose(model);
-        cbData.viewPos = c.cameraPos;
+        // Update MVP constants
+        cbData.mvp = DirectX::XMMatrixTranspose(modelMatrix * view * proj);
+        cbData.model = DirectX::XMMatrixTranspose(modelMatrix);
         
         DirectX::XMVECTOR det;
-        DirectX::XMMATRIX invModel = DirectX::XMMatrixInverse(&det, model);
+        DirectX::XMMATRIX invModel = DirectX::XMMatrixInverse(&det, modelMatrix);
         cbData.normalMatrix = DirectX::XMMatrixTranspose(invModel);
+        cbData.viewPos = c.cameraPos;
+        cbData._padView = 0.0f;
         
-        *mappedCB = cbData;
-        
-        // Set vertex and index buffers for this model
-        D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
-        vertexBufferView.BufferLocation = vertex_buffers[i]->GetGPUVirtualAddress();
-        vertexBufferView.StrideInBytes = sizeof(Vertex);
-        vertexBufferView.SizeInBytes = sizeof(Vertex) * models[i]->GetNumVertices();
-        
-        D3D12_INDEX_BUFFER_VIEW indexBufferView = {};
-        indexBufferView.BufferLocation = index_buffers[i]->GetGPUVirtualAddress();
-        indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-        indexBufferView.SizeInBytes = sizeof(unsigned int) * models[i]->GetNumIndices();
-        
-        commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-        commandList->IASetIndexBuffer(&indexBufferView);
+        *mappedCB = cbData;  // Copy to mapped buffer
         
         // Set constant buffers
         commandList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
         commandList->SetGraphicsRootConstantBufferView(1, materialBuffer->GetGPUVirtualAddress());
         
-        // Set texture for this model
+        // Set vertex and index buffers
+        D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
+        vertexBufferView.BufferLocation = vertex_buffers[i]->GetGPUVirtualAddress();
+        vertexBufferView.StrideInBytes = sizeof(Vertex);
+        vertexBufferView.SizeInBytes = models[i]->GetNumVertices() * sizeof(Vertex);
+        
+        D3D12_INDEX_BUFFER_VIEW indexBufferView;
+        indexBufferView.BufferLocation = index_buffers[i]->GetGPUVirtualAddress();
+        indexBufferView.SizeInBytes = models[i]->GetNumIndices() * sizeof(unsigned int);
+        indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+        
+        commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+        commandList->IASetIndexBuffer(&indexBufferView);
+
+        UINT textureIndex = 0;
         if (i < modelMaterialRanges.size()) {
-            UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-            D3D12_GPU_DESCRIPTOR_HANDLE textureHandle = srvHeap->GetGPUDescriptorHandleForHeapStart();
-            textureHandle.ptr += modelMaterialRanges[i].startIndex * descriptorSize;
-            commandList->SetGraphicsRootDescriptorTable(2, textureHandle);
+            textureIndex = modelMaterialRanges[i].startIndex; // Get the starting texture index for this model
         }
         
-        // Draw
+        // Set texture for this model
+        D3D12_GPU_DESCRIPTOR_HANDLE srvHandle = srvHeap->GetGPUDescriptorHandleForHeapStart();
+        srvHandle.ptr += textureIndex * device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        commandList->SetGraphicsRootDescriptorTable(2, srvHandle);
+        
+        // Draw the model
         commandList->DrawIndexedInstanced(models[i]->GetNumIndices(), 1, 0, 0, 0);
     }
     
-    // Transition back to present
+    // Transition render target from render target to present state
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     commandList->ResourceBarrier(1, &barrier);
     
-    // Execute
+    // Close and execute command list
     commandList->Close();
-    ID3D12CommandList* commandLists[] = { commandList };
-    commandQueue->ExecuteCommandLists(1, commandLists);
+    ID3D12CommandList* ppCommandLists[] = { commandList };
+    commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
     
+    // Present
     swapChain->Present(1, 0);
     
     // Wait for frame to complete
-    const UINT64 fenceValue = fenceValues[frameIndex];
-    commandQueue->Signal(fence, fenceValue);
-    fenceValues[frameIndex]++;
-    
-    if (fence->GetCompletedValue() < fenceValue) {
-        fence->SetEventOnCompletion(fenceValue, fence_event);
+    const UINT64 currentFenceValue = ++fence_value;
+    commandQueue->Signal(fence, currentFenceValue);
+    if (fence->GetCompletedValue() < currentFenceValue) {
+        fence->SetEventOnCompletion(currentFenceValue, fence_event);
         WaitForSingleObject(fence_event, INFINITE);
     }
 }
+
 void Renderer::BindModels(const std::vector<Model*>& modelList) {
     this->models = modelList;
 }
 
 void Renderer::CreateTextureResources() {
     // Count total materials across all models
+    std::cout << "Creating texture resources for " << models.size() << " models" << std::endl;
+
     UINT totalMaterialCount = 0;
     for (const auto& model : models) {
         if (model) {
@@ -785,6 +806,7 @@ void Renderer::CreateTextureResources() {
             if (model->GetMaterials().empty()) {
                 totalMaterialCount++; // Add one for default texture
             }
+            std::cout << "Model has " << model->GetMaterials().size() << " materials" << std::endl;
         }
     }
     
