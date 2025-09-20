@@ -28,10 +28,11 @@ struct BoundingBox {
         maxY = max_Y;
     }
 
-    bool Intersects(BoundingBox one, BoundingBox two) {
-        return (one.minX <= two.minX && one.maxX >= two.maxX) &&
-            (one.minZ <= two.minZ && one.maxZ >= two.maxZ) &&
-            (one.minY <= two.minY && one.maxY >= two.maxY);
+    // Overlap (not full containment) test
+    bool Intersects(const BoundingBox& a, const BoundingBox& b) const {
+        return (a.maxX >= b.minX && a.minX <= b.maxX) &&
+               (a.maxZ >= b.minZ && a.minZ <= b.maxZ) &&
+               (a.maxY >= b.minY && a.minY <= b.maxY);
     }
 };
 
