@@ -88,8 +88,26 @@ void Engine::InitWindow() {
 
     RegisterClass(&wc);
 
-    hwnd = CreateWindow(wc.lpszClassName, L"SlenderMan", WS_OVERLAPPEDWINDOW,
+    hwnd = CreateWindow(wc.lpszClassName, L"???", WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, hInstance, nullptr);
+
+    // Get icon path
+	std::filesystem::path exePath = GetExecutablePath();
+	std::filesystem::path iconFile = exePath / "assets" / "Window" / "minecraft.ico";
+    
+    // Convert to wide string properly
+    std::wstring iconPath = iconFile.wstring();
+    HICON hIcon = (HICON)LoadImageW(NULL, iconPath.c_str(), IMAGE_ICON, 32, 32, LR_LOADFROMFILE);
+    
+    if (hIcon) { 
+        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon); // Also set small icon
+        std::wcout << L"Icon loaded successfully from: " << iconPath << std::endl;
+    } else {
+        DWORD error = GetLastError();
+        std::wcout << L"Failed to load icon from: " << iconPath << L" Error: " << error << std::endl;
+        MessageBoxW(hwnd, L"ico not found", L"ico not found", MB_OK | MB_ICONERROR);
+    }
 
     ShowWindow(hwnd, SW_SHOW);
 }
@@ -97,6 +115,17 @@ void Engine::InitWindow() {
 void Engine::Init() {
     InitWindow();
     
+    audioPlayer = new AudioPlayer();
+    
+    // Play horror background music
+	std::filesystem::path exePath = GetExecutablePath();
+	std::filesystem::path soundFile = exePath / "assets" / "Audio" / "ambience.mp3";
+    if (!audioPlayer->BGM(soundFile.string())) {
+        std::cout << "Failed to load background music!" << std::endl;
+    } else {
+        audioPlayer->SetVolume(300); // 50% volume
+    }
+
     // Load multiple models
     models.clear();
     
@@ -252,6 +281,12 @@ void Engine::Cleanup() {
     if (renderer) {
         delete renderer;
         renderer = nullptr;
+    }
+
+    if (audioPlayer) {
+        audioPlayer->Stop();
+        delete audioPlayer;
+        audioPlayer = nullptr;
     }
     
     // Clean up dynamically allocated models

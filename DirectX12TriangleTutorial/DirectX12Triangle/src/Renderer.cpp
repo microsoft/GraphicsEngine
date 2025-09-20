@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iostream>  // for debug output
 #include "directx/d3dx12.h"
+#include "File.h"
 
 Renderer::Renderer(HWND hwnd, int width, int height)
     : hwnd(hwnd), width(width), height(height), 
@@ -46,6 +47,17 @@ void Renderer::Init() {
 
     c.models = &models;
     //c.SetModels(&models);
+}
+
+void Renderer::UpdateTextures() {
+	std::string flagPath = GetAssetPath("UpdateTexture.txt");
+    if (std::filesystem::exists(flagPath)) {
+        for (auto& model : models) {
+            model->UpdateTextures();
+        }
+        CreateTextureResources();
+		std::filesystem::remove(flagPath);
+    }
 }
 
 // for transparency (ex)
@@ -623,6 +635,7 @@ void Renderer::HandleMouseMove(float deltaX, float deltaY)
 
 void Renderer::Update() {
     // Update happens per frame, not per model
+	UpdateTextures();
 }
 
 void Renderer::Render() {

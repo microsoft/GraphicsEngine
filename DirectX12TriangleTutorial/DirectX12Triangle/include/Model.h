@@ -61,7 +61,7 @@ class Model {
     
 
 public:
-
+    void UpdateTextures();
     bool LoadFromObj(const std::string& path);
 	void LoadMTL(const std::string& path);
 	void MinMax(float& minX, float& minY, float& minZ, float& maxX, float& maxY, float& maxZ);
