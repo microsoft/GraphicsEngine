@@ -228,8 +228,8 @@ void Engine::Init() {
 
     // randomly scatter diamonds
     int diamondNum = 5;
-    std::uniform_real_distribution<float> diamondX(-50.0f, 50.0f);
-    std::uniform_real_distribution<float> diamondZ(-50.0f, 50.0f);
+    std::uniform_real_distribution<float> diamondX(-200.0f, 200.0f);
+    std::uniform_real_distribution<float> diamondZ(-200.0f, 200.0f);
     for (int i = 0; i < diamondNum; ++i) {
         Model* diamond = new Model();
         diamond->isRemovable = true;
@@ -248,6 +248,9 @@ void Engine::Init() {
                 diamond->SetScale(30.0f, 30.0f, 30.0f);
 				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
                 diamond->ApplyTransformation();
+
+                diamond->b.minY = 10.5f;
+                diamond->b.maxY = 11.0f;
 
                 // Check if this diamond intersects with any already placed model
                 bool intersects = false;
@@ -289,7 +292,7 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
-            if (renderer->c.IsLookingAtModel(herobrineModel, 0.75f)) {
+            if (renderer->c.IsLookingAtModel(herobrineModel, 0.9f)) {
                 
                 std::filesystem::path exePath = GetExecutablePath();
                 std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";
