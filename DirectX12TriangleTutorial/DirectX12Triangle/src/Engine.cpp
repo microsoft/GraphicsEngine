@@ -205,6 +205,23 @@ void Engine::Init() {
         delete cube;
     }
 
+    Model* herobrine = new Model();
+    herobrineModel = herobrine;
+    if (herobrine->LoadFromObj("Herobrine.obj")) {
+        std::cout << "Cube loaded: " << herobrine->GetNumVertices() << " vertices" << std::endl;
+        herobrine->SetPosition(20.0f, 0.0f, 0.0f);
+        herobrine->SetRotation(0.0f, DirectX::XM_PI, 0.0f); // DirectX::XM_PIDIV4
+        herobrine->SetScale(2.0f, 2.0f, 2.0f);
+        herobrine->ApplyTransformation();
+        models.push_back(herobrine);
+
+        placedBoundingBoxes.push_back(herobrine->b);
+    }
+    else {
+        std::cout << "Failed to load herobrine.obj" << std::endl;
+        delete herobrine;
+    }
+
     // randomly scatter trees
     int treeNum = 50;
     int maxAttempts = 100; // Maximum attempts to place each tree
@@ -256,10 +273,11 @@ void Engine::Init() {
 
     // randomly scatter diamonds
     int diamondNum = 5;
-    std::uniform_real_distribution<float> diamondX(-50.0f, 50.0f);
-    std::uniform_real_distribution<float> diamondZ(-50.0f, 50.0f);
+    std::uniform_real_distribution<float> diamondX(-200.0f, 200.0f);
+    std::uniform_real_distribution<float> diamondZ(-200.0f, 200.0f);
     for (int i = 0; i < diamondNum; ++i) {
         Model* diamond = new Model();
+        diamond->isRemovable = true;
         if (diamond->LoadFromObj("diamond.obj")) {
             bool placed = false;
 
@@ -275,6 +293,13 @@ void Engine::Init() {
                 diamond->SetScale(30.0f, 30.0f, 30.0f);
 				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
                 diamond->ApplyTransformation();
+
+                diamond->b.minY = 10.0f;
+                diamond->b.maxY = 11.5f;
+				diamond->b.minX -= 2.0f;
+				diamond->b.maxX += 2.0f;
+				diamond->b.minZ -= 2.0f;
+				diamond->b.maxZ += 2.0f;
 
                 // Check if this diamond intersects with any already placed model
                 bool intersects = false;
@@ -316,6 +341,52 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
+            if (renderer->c.IsLookingAtModel(herobrineModel, 0.9f)) {
+                
+                /*std::filesystem::path exePath = GetExecutablePath();
+                std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";
+                audioPlayer->PlaySoundEffect(soundFile.string());*/
+                
+                std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
+                std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
+                std::random_device rd;
+                std::mt19937 gen(rd());
+
+                float x = distX(gen);
+                float z = distZ(gen);
+                float y = 0.0f;
+
+                herobrineModel->SetPosition(x, y, z);
+				herobrineModel->ApplyTransformation();
+
+                renderer->BindModels(models);
+                renderer->CreateAssets();
+                renderer->CreateTextureResources();
+            }
+
+            if (!renderer->c.collectedDiamonds.empty()) {
+                for (auto* diamond : renderer->c.collectedDiamonds) {
+                    // Find and remove the diamond
+                    auto it = std::find(models.begin(), models.end(), diamond);
+                    if (it != models.end()) {
+                        delete* it;
+                        models.erase(it);
+                    }
+                }
+
+                // Clear the collected diamonds list
+                renderer->c.collectedDiamonds.clear();
+
+                std::filesystem::path exePath = GetExecutablePath();
+                std::filesystem::path soundFile = exePath / "assets" / "Audio" / "diamond.mp3";
+                audioPlayer->PlaySoundEffect(soundFile.string());
+
+                // Update renderer with new model list
+                renderer->BindModels(models);
+                renderer->CreateAssets();
+                renderer->CreateTextureResources();
+            }
+
             renderer->Update();
             renderer->Render();
         }

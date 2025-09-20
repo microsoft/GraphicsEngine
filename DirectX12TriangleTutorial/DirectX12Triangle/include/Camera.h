@@ -12,6 +12,8 @@ public:
     Camera();
     ~Camera();
 
+    bool IsLookingAtModel(Model* model, float threshold);
+
     void PanForward(float dir);
     void PanRight(float dir);
     void MouseMovement(float dx, float dy);
@@ -35,5 +37,7 @@ public:
 
     std::vector<Model*>* models = nullptr;
     float collisionRadius = 2.0f;
+
+    std::vector<Model*> collectedDiamonds;
 };
 

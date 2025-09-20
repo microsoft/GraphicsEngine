@@ -17,6 +17,7 @@ public:
     void Init();
     void Run();
     void Cleanup();
+    void RemoveModel(Model* model);
 
     Renderer* renderer;
 
@@ -40,5 +41,7 @@ private:
 	std::vector<Model*> models;
 
     std::vector<std::vector<float>> modelPos;
+
+	Model* herobrineModel = nullptr;
 };
 
