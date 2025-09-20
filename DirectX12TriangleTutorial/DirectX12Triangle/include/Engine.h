@@ -25,6 +25,8 @@ public:
 
     float deltaX = 0.9f;
 
+    bool toggleClickCamera = false; // Toggle for click to rotate camera
+
 private:
     void InitWindow();
 
@@ -33,6 +35,7 @@ private:
     int width, height;
 
     AudioPlayer* audioPlayer;
+
 
 	std::vector<Model*> models;
 
