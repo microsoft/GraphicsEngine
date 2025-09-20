@@ -23,27 +23,29 @@ Camera::~Camera()
 bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {
     if (!models) return false;
 
+    // Create a bounding box around the camera position
     BoundingBox cameraBounds;
-    const float walkingHeight = newPosition.y; // already constrained externally
-    float yMin = walkingHeight - collisionRadius;
-    float yMax = walkingHeight + collisionRadius;
-
-    cameraBounds.SetBbox(
-        newPosition.x - collisionRadius,
-        newPosition.x + collisionRadius,
-        newPosition.z - collisionRadius,
+    cameraBounds.SetBbox(newPosition.x - collisionRadius, 
+        newPosition.x + collisionRadius, 
+        newPosition.z - collisionRadius, 
         newPosition.z + collisionRadius,
-        yMin,
-        yMax
-    );
+        10.0f,
+        10.0f);
 
+	bool isColliding = false;
+
+    // Check collision with each model
     for (const auto& model : *models) {
-        if (!model) continue;
-        if (cameraBounds.Intersects(cameraBounds, model->b)) {
-            return true;
+        if (model) {
+            isColliding = cameraBounds.Intersects(model->b, cameraBounds);
         }
+
+        if (isColliding) {
+            break;
+		}
     }
-    return false;
+
+    return isColliding; // No collision
 }
 
 void Camera::PanForward(float dir)

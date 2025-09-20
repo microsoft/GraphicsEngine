@@ -793,8 +793,6 @@ void Renderer::Render() {
 
 void Renderer::BindModels(const std::vector<Model*>& modelList) {
     this->models = modelList;
-    // Provide model list to camera for collision
-    c.models = &this->models;
 }
 
 void Renderer::CreateTextureResources() {
