@@ -12,6 +12,8 @@ public:
     Camera();
     ~Camera();
 
+    bool IsLookingAtModel(Model* model, float threshold);
+
     void PanForward(float dir);
     void PanRight(float dir);
     void MouseMovement(float dx, float dy);

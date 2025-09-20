@@ -160,6 +160,23 @@ void Engine::Init() {
         delete cube;
     }
 
+    Model* herobrine = new Model();
+    herobrineModel = herobrine;
+    if (herobrine->LoadFromObj("Herobrine.obj")) {
+        std::cout << "Cube loaded: " << herobrine->GetNumVertices() << " vertices" << std::endl;
+        herobrine->SetPosition(20.0f, 0.0f, 0.0f);
+        herobrine->SetRotation(0.0f, DirectX::XM_PI, 0.0f); // DirectX::XM_PIDIV4
+        herobrine->SetScale(2.0f, 2.0f, 2.0f);
+        herobrine->ApplyTransformation();
+        models.push_back(herobrine);
+
+        placedBoundingBoxes.push_back(herobrine->b);
+    }
+    else {
+        std::cout << "Failed to load herobrine.obj" << std::endl;
+        delete herobrine;
+    }
+
     // randomly scatter trees
     int treeNum = 50;
     int maxAttempts = 100; // Maximum attempts to place each tree
@@ -272,6 +289,29 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
+            if (renderer->c.IsLookingAtModel(herobrineModel, 0.75f)) {
+                
+                std::filesystem::path exePath = GetExecutablePath();
+                std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";
+                audioPlayer->PlaySoundEffect(soundFile.string());
+                
+                std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
+                std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
+                std::random_device rd;
+                std::mt19937 gen(rd());
+
+                float x = distX(gen);
+                float z = distZ(gen);
+                float y = 0.0f;
+
+                herobrineModel->SetPosition(x, y, z);
+				herobrineModel->ApplyTransformation();
+
+                renderer->BindModels(models);
+                renderer->CreateAssets();
+                renderer->CreateTextureResources();
+            }
+
             if (!renderer->c.collectedDiamonds.empty()) {
                 for (auto* diamond : renderer->c.collectedDiamonds) {
                     // Find and remove the diamond
@@ -284,6 +324,10 @@ void Engine::Run() {
 
                 // Clear the collected diamonds list
                 renderer->c.collectedDiamonds.clear();
+
+                std::filesystem::path exePath = GetExecutablePath();
+                std::filesystem::path soundFile = exePath / "assets" / "Audio" / "diamond.mp3";
+                audioPlayer->PlaySoundEffect(soundFile.string());
 
                 // Update renderer with new model list
                 renderer->BindModels(models);

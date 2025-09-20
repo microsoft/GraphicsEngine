@@ -1,5 +1,6 @@
 #include "Camera.h"
 #include <algorithm>
+#include <Audio.h>
 
 Camera::Camera()
 {
@@ -18,6 +19,33 @@ Camera::Camera()
 
 Camera::~Camera()
 {
+}
+
+bool Camera::IsLookingAtModel(Model* model, float threshold) {
+    if (!model) return false;
+
+    // Get model position
+    DirectX::XMFLOAT3 modelPos = model->GetPosition();
+
+    // Calculate direction from camera to model
+    DirectX::XMFLOAT3 toModel;
+    toModel.x = modelPos.x - cameraPos.x;
+    toModel.y = modelPos.y - cameraPos.y;
+    toModel.z = modelPos.z - cameraPos.z;
+
+    // Normalize the direction to model
+    DirectX::XMVECTOR toModelVec = DirectX::XMLoadFloat3(&toModel);
+    toModelVec = DirectX::XMVector3Normalize(toModelVec);
+
+    // Get camera forward vector
+    DirectX::XMVECTOR forwardVec = DirectX::XMLoadFloat3(&cameraForward);
+
+    // Calculate dot product
+    DirectX::XMVECTOR dotVec = DirectX::XMVector3Dot(forwardVec, toModelVec);
+    float dot = DirectX::XMVectorGetX(dotVec);
+
+    // Check if dot product exceeds threshold (closer to 1.0 means more aligned)
+    return dot >= threshold;
 }
 
 bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {

@@ -38,5 +38,7 @@ private:
 	std::vector<Model*> models;
 
     std::vector<std::vector<float>> modelPos;
+
+	Model* herobrineModel = nullptr;
 };
 
