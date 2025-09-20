@@ -17,6 +17,7 @@ public:
     void Init();
     void Run();
     void Cleanup();
+    void RemoveModel(Model* model);
 
     Renderer* renderer;
 

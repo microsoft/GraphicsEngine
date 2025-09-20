@@ -215,6 +215,7 @@ void Engine::Init() {
     std::uniform_real_distribution<float> diamondZ(-50.0f, 50.0f);
     for (int i = 0; i < diamondNum; ++i) {
         Model* diamond = new Model();
+        diamond->isRemovable = true;
         if (diamond->LoadFromObj("diamond.obj")) {
             bool placed = false;
 
@@ -271,6 +272,25 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
+            if (!renderer->c.collectedDiamonds.empty()) {
+                for (auto* diamond : renderer->c.collectedDiamonds) {
+                    // Find and remove the diamond
+                    auto it = std::find(models.begin(), models.end(), diamond);
+                    if (it != models.end()) {
+                        delete* it;
+                        models.erase(it);
+                    }
+                }
+
+                // Clear the collected diamonds list
+                renderer->c.collectedDiamonds.clear();
+
+                // Update renderer with new model list
+                renderer->BindModels(models);
+                renderer->CreateAssets();
+                renderer->CreateTextureResources();
+            }
+
             renderer->Update();
             renderer->Render();
         }

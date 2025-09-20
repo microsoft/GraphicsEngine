@@ -102,4 +102,6 @@ public:
     void ComputeBoundingBox();
 
     BoundingBox b;
+
+	bool isRemovable = false;
 };

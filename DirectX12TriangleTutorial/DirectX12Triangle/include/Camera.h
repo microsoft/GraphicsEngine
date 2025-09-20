@@ -35,5 +35,7 @@ public:
 
     std::vector<Model*>* models = nullptr;
     float collisionRadius = 2.0f;
+
+    std::vector<Model*> collectedDiamonds;
 };
 

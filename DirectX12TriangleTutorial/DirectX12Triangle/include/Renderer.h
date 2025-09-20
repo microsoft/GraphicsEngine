@@ -27,6 +27,11 @@ public:
 
     void BindModels(const std::vector<Model*>& models);
     void RenderModel(Model* model, int modelIndex);
+    void CreateAssets();
+    void CreateTextureResources();
+
+    Camera c;
+
 private:
     void InitD3D();
     void SetBlendState(D3D12_BLEND_DESC& blend_desc);
@@ -37,11 +42,7 @@ private:
     void CreateRootSignature();
     void CreateConstBuffer();
     void CreatePipeline();
-    void CreateAssets();
-    void CreateTextureResources();
     void UpdateTextures();
-
-    Camera c;
 
     HWND hwnd;
     int width, height;
