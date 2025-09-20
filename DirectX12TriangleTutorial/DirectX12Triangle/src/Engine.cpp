@@ -249,8 +249,12 @@ void Engine::Init() {
 				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
                 diamond->ApplyTransformation();
 
-                diamond->b.minY = 10.5f;
-                diamond->b.maxY = 11.0f;
+                diamond->b.minY = 10.0f;
+                diamond->b.maxY = 11.5f;
+				diamond->b.minX -= 2.0f;
+				diamond->b.maxX += 2.0f;
+				diamond->b.minZ -= 2.0f;
+				diamond->b.maxZ += 2.0f;
 
                 // Check if this diamond intersects with any already placed model
                 bool intersects = false;
@@ -294,9 +298,9 @@ void Engine::Run() {
         else {
             if (renderer->c.IsLookingAtModel(herobrineModel, 0.9f)) {
                 
-                std::filesystem::path exePath = GetExecutablePath();
+                /*std::filesystem::path exePath = GetExecutablePath();
                 std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";
-                audioPlayer->PlaySoundEffect(soundFile.string());
+                audioPlayer->PlaySoundEffect(soundFile.string());*/
                 
                 std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
                 std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);

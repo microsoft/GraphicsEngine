@@ -65,16 +65,15 @@ bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {
     // Check collision with each model
     for (const auto& model : *models) {
         if (cameraBounds.Intersects(model->b, cameraBounds)) {
-            isColliding = true;
             if (model->isRemovable) {
                 collectedDiamonds.push_back(model);
                 break;
             }
+            else {
+                isColliding = true;
+                break;
+            }
         }
-
-        if (isColliding) {
-            break;
-		}
     }
 
     return isColliding; // No collision
