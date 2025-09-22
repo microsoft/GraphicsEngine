@@ -24,59 +24,52 @@ Camera::~Camera()
 bool Camera::IsLookingAtModel(Model* model, float threshold) {
     if (!model) return false;
 
-    // Get model position
-    DirectX::XMFLOAT3 modelPos = model->GetPosition();
+    // Prefer bounding box center (robust if vertex data was baked)
+    const BoundingBox& bb = model->b;
+    float cx = (bb.minX + bb.maxX) * 0.5f;
+    float cy = (bb.minY + bb.maxY) * 0.5f;
+    float cz = (bb.minZ + bb.maxZ) * 0.5f;
 
-    // Calculate direction from camera to model
-    DirectX::XMFLOAT3 toModel;
-    toModel.x = modelPos.x - cameraPos.x;
-    toModel.y = modelPos.y - cameraPos.y;
-    toModel.z = modelPos.z - cameraPos.z;
+    DirectX::XMFLOAT3 toModel {
+        cx - cameraPos.x,
+        cy - cameraPos.y,
+        cz - cameraPos.z
+    };
 
-    // Normalize the direction to model
     DirectX::XMVECTOR toModelVec = DirectX::XMLoadFloat3(&toModel);
     toModelVec = DirectX::XMVector3Normalize(toModelVec);
-
-    // Get camera forward vector
     DirectX::XMVECTOR forwardVec = DirectX::XMLoadFloat3(&cameraForward);
 
-    // Calculate dot product
-    DirectX::XMVECTOR dotVec = DirectX::XMVector3Dot(forwardVec, toModelVec);
-    float dot = DirectX::XMVectorGetX(dotVec);
-
-    // Check if dot product exceeds threshold (closer to 1.0 means more aligned)
+    float dot = DirectX::XMVectorGetX(DirectX::XMVector3Dot(forwardVec, toModelVec));
     return dot >= threshold;
 }
 
 bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {
     if (!models) return false;
 
-    // Create a bounding box around the camera position
-    BoundingBox cameraBounds;
-    cameraBounds.SetBbox(newPosition.x - collisionRadius, 
-        newPosition.x + collisionRadius, 
-        newPosition.z - collisionRadius, 
+    // Build a camera AABB with some vertical size
+    BoundingBox camBox;
+    const float halfHeight = 2.0f;
+    camBox.SetBbox(
+        newPosition.x - collisionRadius,
+        newPosition.x + collisionRadius,
+        newPosition.z - collisionRadius,
         newPosition.z + collisionRadius,
-        10.0f,
-        10.0f);
+        newPosition.y - halfHeight,
+        newPosition.y + halfHeight
+    );
 
-	bool isColliding = false;
-
-    // Check collision with each model
-    for (const auto& model : *models) {
-        if (cameraBounds.Intersects(model->b, cameraBounds)) {
-            if (model->isRemovable) {
-                collectedDiamonds.push_back(model);
-                break;
+    for (auto* m : *models) {
+        if (!m) continue;
+        if (camBox.Intersects(camBox, m->b)) {
+            if (m->isRemovable) {
+                collectedDiamonds.push_back(m);
+                continue;
             }
-            else {
-                isColliding = true;
-                break;
-            }
+            return true;
         }
     }
-
-    return isColliding; // No collision
+    return false;
 }
 
 void Camera::PanForward(float dir)

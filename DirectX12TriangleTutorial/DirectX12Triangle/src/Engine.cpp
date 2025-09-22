@@ -133,7 +133,7 @@ void Engine::InitWindow() {
 
     RegisterClass(&wc);
 
-    hwnd = CreateWindow(wc.lpszClassName, L"???", WS_OVERLAPPEDWINDOW,
+    hwnd = CreateWindow(wc.lpszClassName, L"???", WS_POPUP,
         CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, hInstance, nullptr);
 
     // Get icon path
@@ -181,7 +181,7 @@ void Engine::Init() {
     if (grassplane->LoadFromObj("grassplane.obj")) {
         std::cout << "Grassplane loaded: " << grassplane->GetNumVertices() << " vertices" << std::endl;
         grassplane->SetPosition(0.0f, 0.0f, 0.0f);
-        grassplane->ApplyTransformation();
+        grassplane->ApplyTransformation(false);
         models.push_back(grassplane);
     } else {
         std::cout << "Failed to load grassplane.obj" << std::endl;
@@ -195,7 +195,7 @@ void Engine::Init() {
         cube->SetPosition(-10.0f, 0.0f, 0.0f);
         cube->SetRotation(0.0f, DirectX::XM_PIDIV2, 0.0f); // DirectX::XM_PIDIV4
         cube->SetScale(2.0f, 2.0f, 2.0f);
-        cube->ApplyTransformation();
+        cube->ApplyTransformation(false);
         models.push_back(cube);
 
 		placedBoundingBoxes.push_back(cube->b);
@@ -212,7 +212,7 @@ void Engine::Init() {
         herobrine->SetPosition(20.0f, 0.0f, 0.0f);
         herobrine->SetRotation(0.0f, DirectX::XM_PI, 0.0f); // DirectX::XM_PIDIV4
         herobrine->SetScale(2.0f, 2.0f, 2.0f);
-        herobrine->ApplyTransformation();
+        herobrine->ApplyTransformation(true);
         models.push_back(herobrine);
 
         placedBoundingBoxes.push_back(herobrine->b);
@@ -242,10 +242,15 @@ void Engine::Init() {
                 float z = distZ(gen);
                 float y = -15.0f; // Keep trees at ground level
 
+                // Skip positions inside player spawn exclusion zone
+                if (IsInsidePlayerSpawn(x, z)) {
+                    continue; // try another attempt
+                }
+
                 // Set position and scale, then apply transformation to compute bounding box
                 tree->SetPosition(x, y, z);
                 tree->SetScale(30.0f, 30.0f, 30.0f);
-                tree->ApplyTransformation();
+                tree->ApplyTransformation(false);
 
                 // Check if this tree intersects with any already placed model
                 bool intersects = false;
@@ -292,7 +297,7 @@ void Engine::Init() {
                 diamond->SetPosition(x, y, z);
                 diamond->SetScale(30.0f, 30.0f, 30.0f);
 				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
-                diamond->ApplyTransformation();
+                diamond->ApplyTransformation(false);
 
                 diamond->b.minY = 10.0f;
                 diamond->b.maxY = 11.5f;
@@ -341,14 +346,14 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
-            if (renderer->c.IsLookingAtModel(herobrineModel, 0.9f)) {
+            if (renderer->c.IsLookingAtModel(herobrineModel, 0.90f)) {
                 
                 /*std::filesystem::path exePath = GetExecutablePath();
                 std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";
                 audioPlayer->PlaySoundEffect(soundFile.string());*/
                 
-                std::uniform_real_distribution<float> distX(-200.0f, 200.0f);
-                std::uniform_real_distribution<float> distZ(-200.0f, 200.0f);
+                std::uniform_real_distribution<float> distX(-25.0f, 25.0f);
+                std::uniform_real_distribution<float> distZ(-25.0f, 25.0f);
                 std::random_device rd;
                 std::mt19937 gen(rd());
 
@@ -357,11 +362,9 @@ void Engine::Run() {
                 float y = 0.0f;
 
                 herobrineModel->SetPosition(x, y, z);
-				herobrineModel->ApplyTransformation();
+				herobrineModel->ApplyTransformation(true);
 
-                renderer->BindModels(models);
-                renderer->CreateAssets();
-                renderer->CreateTextureResources();
+                TryRebuildRendererAssets();
             }
 
             if (!renderer->c.collectedDiamonds.empty()) {
@@ -382,14 +385,24 @@ void Engine::Run() {
                 audioPlayer->PlaySoundEffect(soundFile.string());
 
                 // Update renderer with new model list
-                renderer->BindModels(models);
-                renderer->CreateAssets();
-                renderer->CreateTextureResources();
+                TryRebuildRendererAssets();
             }
 
             renderer->Update();
             renderer->Render();
         }
+    }
+}
+
+void Engine::TryRebuildRendererAssets() {
+    // Rebuild at most once every 5000 ms
+    const DWORD REBUILD_INTERVAL_MS = 5000;
+    DWORD now = GetTickCount();
+    if (now - lastAssetRebuildMs >= REBUILD_INTERVAL_MS || lastAssetRebuildMs == 0) {
+        renderer->BindModels(models);
+        renderer->CreateAssets();
+        renderer->CreateTextureResources();
+        lastAssetRebuildMs = now;
     }
 }
 

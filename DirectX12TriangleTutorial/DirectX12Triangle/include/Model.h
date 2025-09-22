@@ -20,18 +20,16 @@ struct BoundingBox {
     float maxY;
 
     void SetBbox(float min_x, float max_x, float min_z, float max_z, float min_Y, float max_Y) {
-        minX = min_x;
-        maxX = max_x;
-        minZ = min_z;
-        maxZ = max_z;
-        minY = min_Y;
-        maxY = max_Y;
+        minX = min_x; maxX = max_x;
+        minZ = min_z; maxZ = max_z;
+        minY = min_Y; maxY = max_Y;
     }
 
-    bool Intersects(BoundingBox one, BoundingBox two) {
-        return (one.minX <= two.minX && one.maxX >= two.maxX) &&
-            (one.minZ <= two.minZ && one.maxZ >= two.maxZ) &&
-            (one.minY <= two.minY && one.maxY >= two.maxY);
+    // Overlap (NOT containment) test
+    bool Intersects(const BoundingBox& a, const BoundingBox& b) const {
+        return (a.maxX >= b.minX && a.minX <= b.maxX) &&
+               (a.maxZ >= b.minZ && a.minZ <= b.maxZ) &&
+               (a.maxY >= b.minY && a.minY <= b.maxY);
     }
 };
 
@@ -96,7 +94,7 @@ public:
         return S * R * T;
     }
 	
-	void ApplyTransformation();
+	void ApplyTransformation(bool keepTransform);
 	void SortByMaterial();
 
     void ComputeBoundingBox();

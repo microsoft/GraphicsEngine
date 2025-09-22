@@ -43,5 +43,18 @@ private:
     std::vector<std::vector<float>> modelPos;
 
 	Model* herobrineModel = nullptr;
+
+    // Avoid large herobrine teleport perf hit
+    DWORD lastAssetRebuildMs = 0;
+    void TryRebuildRendererAssets();
+
+    DirectX::XMFLOAT3 playerSpawnPos { 20.0f, 5.0f, -60.0f }; // Must match Camera spawn in camerapos
+    float playerSpawnSafeRadius = 40.0f; // Adjust as needed (covers large scaled trees)
+    bool IsInsidePlayerSpawn(float x, float z) const {
+        float dx = x - playerSpawnPos.x;
+        float dz = z - playerSpawnPos.z;
+        return (dx * dx + dz * dz) < (playerSpawnSafeRadius * playerSpawnSafeRadius);
+    }
+
 };
 

@@ -381,7 +381,7 @@ void Model::Scale(float scaleFactor) {
 	}
 }
 
-void Model::ApplyTransformation() {
+void Model::ApplyTransformation(bool keepTransform = false) {
     DirectX::XMMATRIX transformMatrix = GetModelMatrix();
     
 	float minX = 999999.0f;
@@ -416,10 +416,17 @@ void Model::ApplyTransformation() {
 	b.SetBbox(minX, maxX, minZ, maxZ, minY, maxY);
     
     // Reset transformation after applying
-    position = { 0.0f, 0.0f, 0.0f };
-    rotation = { 0.0f, 0.0f, 0.0f };
-    scale = { 1.0f, 1.0f, 1.0f };
-
+    if (!keepTransform) {
+        position = {0.0f, 0.0f, 0.0f};
+        rotation = {0.0f, 0.0f, 0.0f};
+        scale    = {1.0f, 1.0f, 1.0f};
+    }
+	// Keep herobrine position
+	else {
+		
+		scale    = {1.0f, 1.0f, 1.0f};
+		rotation = {0.0f, 0.0f, 0.0f};
+	}
 }
 
 // Add this method to Model class
