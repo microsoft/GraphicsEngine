@@ -55,11 +55,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
             float deltaY = static_cast<float>(currentPos.y - engine->lastPos.y);
 
             if (deltaX != 0.0f || deltaY != 0.0f) {
-                std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
+                /*std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
                 OutputDebugStringA(test.c_str());
 
                 test = "deltaY: " + std::to_string(deltaY);
-                OutputDebugStringA(test.c_str());
+                OutputDebugStringA(test.c_str());*/
 
                 engine->lastPos = currentPos;
 
@@ -90,11 +90,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                 float deltaY = static_cast<float>(currentPos.y - engine->lastPos.y);
 
                 if (deltaX != 0.0f || deltaY != 0.0f) {
-                    std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
-                    OutputDebugStringA(test.c_str());
+                    //std::string test = "deltaX: " + std::to_string(deltaX) + "\n";
+                    //OutputDebugStringA(test.c_str());
 
-                    test = "deltaY: " + std::to_string(deltaY);
-                    OutputDebugStringA(test.c_str());
+                    //test = "deltaY: " + std::to_string(deltaY);
+                    //OutputDebugStringA(test.c_str());
 
                     engine->lastPos = currentPos;
 
@@ -103,12 +103,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
                     }
                 }
                 // Recenter cursor to prevent hitting window boundaries
-                RECT rect;
+            /*    RECT rect;
                 GetClientRect(hwnd, &rect);
                 POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
                 ClientToScreen(hwnd, &center);
                 SetCursorPos(center.x, center.y);
-                engine->lastPos = center;
+                engine->lastPos = center;*/
             }
         }
     }
@@ -299,8 +299,10 @@ void Engine::Init() {
 				diamond->SetRotation(0.0f, DirectX::XM_PI/2.0f, 0.0f);
                 diamond->ApplyTransformation(false);
 
-                diamond->b.minY = 10.0f;
-                diamond->b.maxY = 11.5f;
+                /*diamond->b.minY = 10.0f;
+                diamond->b.maxY = 11.5f;*/
+                diamond->b.minY = 2.0f;
+                diamond->b.maxY = 8.0f;
 				diamond->b.minX -= 2.0f;
 				diamond->b.maxX += 2.0f;
 				diamond->b.minZ -= 2.0f;
@@ -346,7 +348,7 @@ void Engine::Run() {
             DispatchMessage(&msg);
         }
         else {
-            if (renderer->c.IsLookingAtModel(herobrineModel, 0.90f)) {
+            if (renderer->c.IsLookingAtModel(herobrineModel, 0.80f)) {
                 
                 /*std::filesystem::path exePath = GetExecutablePath();
                 std::filesystem::path soundFile = exePath / "assets" / "Audio" / "Cave5.mp3";

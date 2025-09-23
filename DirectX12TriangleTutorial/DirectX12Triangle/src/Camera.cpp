@@ -12,7 +12,7 @@ Camera::Camera()
     
     yaw = 0.0f;
     pitch = 0.0f;
-    mouseSensitivity = 0.005f;
+    mouseSensitivity = 0.05f;
     
     UpdateCameraVectors();
 }
@@ -64,7 +64,7 @@ bool Camera::CheckCollision(const DirectX::XMFLOAT3& newPosition) {
         if (camBox.Intersects(camBox, m->b)) {
             if (m->isRemovable) {
                 collectedDiamonds.push_back(m);
-                continue;
+                return false;
             }
             return true;
         }
